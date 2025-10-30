@@ -1,3 +1,10 @@
 keys/
 .cursor
 node_modules
+.env.*
+.env
+dist
+.DS_Store
+.idea
+.vscode
+.cursor
