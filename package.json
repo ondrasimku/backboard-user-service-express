@@ -1,5 +1,10 @@
 {
   "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.66.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.207.0",
+    "@opentelemetry/propagator-b3": "^2.2.0",
+    "@opentelemetry/sdk-node": "^0.207.0",
     "@types/jsonwebtoken": "^9.0.10",
     "amqplib": "^0.10.9",
     "bcrypt": "^6.0.0",

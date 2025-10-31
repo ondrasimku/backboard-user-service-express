@@ -45,7 +45,7 @@ export const authenticateToken = async (
 
         req.user = decoded as JwtPayload;
         
-        if (req.user?.userId && req.context) {
+        if (req.user?.userId) {
           asyncContext.updateContext({ userId: req.user.userId });
         }
         

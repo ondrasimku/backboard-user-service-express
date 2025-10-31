@@ -3,7 +3,7 @@ import express from 'express';
 import container from './config/container';
 import { TYPES } from './types/di.types';
 import { ILogger } from './logging/logger.interface';
-import { requestContextMiddleware } from './middlewares/requestContext';
+import { asyncContextMiddleware } from './middlewares/asyncContext';
 import { createHttpLoggerMiddleware } from './middlewares/httpLogger';
 import { createErrorHandler } from './middlewares/errorHandler';
 import authRoutes from './routes/authRoutes';
@@ -13,7 +13,7 @@ const app = express();
 
 const logger = container.get<ILogger>(TYPES.Logger);
 
-app.use(requestContextMiddleware);
+app.use(asyncContextMiddleware);
 app.use(createHttpLoggerMiddleware(logger));
 app.use(express.json());
 app.use('/api/auth', authRoutes);

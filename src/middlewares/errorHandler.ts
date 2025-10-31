@@ -18,9 +18,6 @@ export const createErrorHandler = (logger: ILogger) => {
     const message = err.message || 'Internal Server Error';
 
     const context = {
-      requestId: req.context?.requestId,
-      traceparent: req.context?.traceparent,
-      userId: req.context?.userId,
       method: req.method,
       path: req.path,
       status,

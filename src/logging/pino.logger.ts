@@ -1,5 +1,6 @@
 import pino, { Logger as PinoLogger } from 'pino';
 import { injectable } from 'inversify';
+import { trace } from '@opentelemetry/api';
 import type { ILogger, LogContext } from './logger.interface';
 import { asyncContext } from './context';
 import { config } from '../config/config';
@@ -50,13 +51,23 @@ export class PinoLoggerService implements ILogger {
 
   private enrichContext(context?: LogContext): Record<string, unknown> {
     const asyncCtx = asyncContext.getContext();
+    const span = trace.getActiveSpan();
+    const spanContext = span?.spanContext();
     
-    return {
+    const enriched: Record<string, unknown> = {
       ...context,
-      requestId: context?.requestId ?? asyncCtx?.requestId,
-      traceparent: context?.traceparent ?? asyncCtx?.traceparent,
       userId: context?.userId ?? asyncCtx?.userId,
     };
+
+    if (spanContext?.traceId) {
+      enriched.trace_id = spanContext.traceId;
+    }
+
+    if (spanContext?.spanId) {
+      enriched.span_id = spanContext.spanId;
+    }
+
+    return enriched;
   }
 
   debug(message: string, context?: LogContext): void {
@@ -78,12 +89,7 @@ export class PinoLoggerService implements ILogger {
       this.logger.error(
         {
           ...enriched,
-          err: {
-            message: error.message,
-            name: error.name,
-            stack: error.stack,
-            ...(error as any),
-          },
+          err: error,
         },
         message
       );

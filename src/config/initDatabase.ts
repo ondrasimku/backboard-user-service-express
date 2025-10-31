@@ -10,3 +10,15 @@ export const initializeDatabase = async (logger: ILogger): Promise<void> => {
     throw error;
   }
 };
+
+export const closeDatabase = async (logger: ILogger): Promise<void> => {
+  try {
+    if (AppDataSource.isInitialized) {
+      await AppDataSource.destroy();
+      logger.info('Database connection closed successfully');
+    }
+  } catch (error) {
+    logger.error('Error closing database connection', error as Error);
+    throw error;
+  }
+};

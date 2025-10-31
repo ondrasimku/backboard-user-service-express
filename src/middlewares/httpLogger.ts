@@ -8,9 +8,6 @@ export const createHttpLoggerMiddleware = (logger: ILogger) => {
     res.on('finish', () => {
       const duration = Date.now() - startTime;
       const logContext = {
-        requestId: req.context?.requestId,
-        traceparent: req.context?.traceparent,
-        userId: req.context?.userId,
         method: req.method,
         path: req.path,
         statusCode: res.statusCode,
