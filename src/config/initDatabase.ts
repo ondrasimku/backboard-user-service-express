@@ -1,12 +1,12 @@
 import AppDataSource from './database';
+import { ILogger } from '../logging/logger.interface';
 
-export const initializeDatabase = async (): Promise<void> => {
+export const initializeDatabase = async (logger: ILogger): Promise<void> => {
   try {
     await AppDataSource.initialize();
-    console.log('Database connection established successfully.');
-    console.log('Database synchronized.');
+    logger.info('Database connection established successfully');
   } catch (error) {
-    console.error('Unable to connect to the database:', error);
+    logger.error('Unable to connect to the database', error as Error);
     throw error;
   }
 };

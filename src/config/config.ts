@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 
-dotenv.config();
+dotenv.config({ debug: false });
 
 interface DatabaseConfig {
   host: string;
@@ -52,15 +52,11 @@ function loadJwtKeys(): { privateKey: string; publicKey: string } {
   if (fs.existsSync(privateKeyPath) && fs.existsSync(publicKeyPath)) {
     privateKey = fs.readFileSync(privateKeyPath, 'utf-8');
     publicKey = fs.readFileSync(publicKeyPath, 'utf-8');
-    console.log('JWT keys loaded from files (keys/private.pem, keys/public.pem)');
   } 
   // Fall back to environment variables
   else if (process.env.JWT_PRIVATE_KEY && process.env.JWT_PUBLIC_KEY) {
     privateKey = process.env.JWT_PRIVATE_KEY.replace(/\\n/g, '\n');
     publicKey = process.env.JWT_PUBLIC_KEY.replace(/\\n/g, '\n');
-    console.log('JWT keys loaded from environment variables');
-  } else {
-    console.warn('Warning: No JWT keys found. Generate them using: npm run generate-keys');
   }
 
   return { privateKey, publicKey };

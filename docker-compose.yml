@@ -9,8 +9,10 @@ services:
     environment:
       - NODE_ENV=development
     volumes:
-      - .:/usr/src/app
-      - /usr/src/app/node_modules
+      - ./src:/usr/src/app/src
+      - ./keys:/usr/src/app/keys:ro
+      - ./.env:/usr/src/app/.env:ro
+      - ./jest.config.js:/usr/src/app/jest.config.js:ro
     networks:
       - backboard-network
 networks:

@@ -10,9 +10,12 @@ const startServer = async () => {
   const logger = container.get<ILogger>(TYPES.Logger);
 
   try {
-    logger.info('Starting user service', { environment: config.nodeEnv, port: config.port });
+    logger.info('Starting user service', { 
+      environment: config.nodeEnv, 
+      port: config.port
+    });
     
-    await initializeDatabase();
+    await initializeDatabase(logger);
     logger.info('Database initialized successfully');
     
     const eventPublisher = container.get<IEventPublisher>(TYPES.EventPublisher);

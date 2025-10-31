@@ -1,6 +1,8 @@
-import { injectable } from 'inversify';
+import { injectable, inject } from 'inversify';
 import { connect, ChannelModel, Channel, Options } from 'amqplib';
 import { IEventPublisher, EventPayload } from './eventPublisher';
+import { ILogger } from '../logging/logger.interface';
+import { TYPES } from '../types/di.types';
 import config from '../config/config';
 
 interface RetryConfig {
@@ -24,7 +26,9 @@ export class RabbitMQEventPublisher implements IEventPublisher {
     backoffMultiplier: 2,
   };
 
-  constructor() {
+  constructor(
+    @inject(TYPES.Logger) private logger: ILogger
+  ) {
     this.exchange = config.rabbitmq.exchange;
     this.connectionOptions = this.parseConnectionOptions(
       config.rabbitmq.url,
@@ -46,7 +50,7 @@ export class RabbitMQEventPublisher implements IEventPublisher {
         heartbeat: 60,
       };
     } catch (error) {
-      console.error('Failed to parse RabbitMQ URL:', error);
+      this.logger.error('Failed to parse RabbitMQ URL', error as Error);
       throw new Error('Invalid RabbitMQ URL configuration');
     }
   }
@@ -73,9 +77,10 @@ export class RabbitMQEventPublisher implements IEventPublisher {
 
     for (let attempt = 0; attempt < this.retryConfig.maxRetries; attempt++) {
       try {
-        console.log(
-          `Attempting to connect to RabbitMQ (attempt ${attempt + 1}/${this.retryConfig.maxRetries})...`
-        );
+        this.logger.info('Attempting to connect to RabbitMQ', {
+          attempt: attempt + 1,
+          maxRetries: this.retryConfig.maxRetries
+        });
 
         this.connection = await connect(this.connectionOptions);
         this.channel = await this.connection.createChannel();
@@ -87,35 +92,36 @@ export class RabbitMQEventPublisher implements IEventPublisher {
         this.isConnected = true;
 
         this.connection.on('error', (err) => {
-          console.error('RabbitMQ connection error:', err);
+          this.logger.error('RabbitMQ connection error', err);
           this.isConnected = false;
         });
 
         this.connection.on('close', () => {
-          console.log('RabbitMQ connection closed');
+          this.logger.info('RabbitMQ connection closed');
           this.isConnected = false;
         });
 
-        console.log(`Successfully connected to RabbitMQ exchange: ${this.exchange}`);
+        this.logger.info('Successfully connected to RabbitMQ', { exchange: this.exchange });
         return;
       } catch (error) {
         lastError = error as Error;
         const isLastAttempt = attempt === this.retryConfig.maxRetries - 1;
         
-        console.error(
-          `Failed to connect to RabbitMQ (attempt ${attempt + 1}/${this.retryConfig.maxRetries}):`,
-          error instanceof Error ? error.message : error
-        );
+        this.logger.warn('Failed to connect to RabbitMQ', {
+          attempt: attempt + 1,
+          maxRetries: this.retryConfig.maxRetries,
+          error: error instanceof Error ? error.message : String(error)
+        });
 
         if (isLastAttempt) {
-          console.error('Max retry attempts reached. Could not connect to RabbitMQ.');
+          this.logger.error('Max retry attempts reached for RabbitMQ connection', lastError);
           throw new Error(
             `Failed to connect to RabbitMQ after ${this.retryConfig.maxRetries} attempts: ${lastError.message}`
           );
         }
 
         const backoffDelay = this.calculateBackoff(attempt);
-        console.log(`Retrying in ${backoffDelay}ms...`);
+        this.logger.debug('Retrying RabbitMQ connection', { delayMs: backoffDelay });
         await this.sleep(backoffDelay);
       }
     }
@@ -123,7 +129,7 @@ export class RabbitMQEventPublisher implements IEventPublisher {
 
   async publish(routingKey: string, payload: EventPayload): Promise<void> {
     if (!this.channel || !this.isConnected) {
-      console.warn(`RabbitMQ not connected. Skipping event publish for routing key: ${routingKey}`);
+      this.logger.warn('RabbitMQ not connected, attempting to reconnect', { routingKey });
       
       try {
         await this.connect();
@@ -132,7 +138,7 @@ export class RabbitMQEventPublisher implements IEventPublisher {
           return;
         }
       } catch (error) {
-        console.error('Failed to reconnect to RabbitMQ:', error);
+        this.logger.error('Failed to reconnect to RabbitMQ', error as Error, { routingKey });
         return;
       }
     }
@@ -146,9 +152,12 @@ export class RabbitMQEventPublisher implements IEventPublisher {
         timestamp: Date.now(),
       });
 
-      console.log(`Published event to ${this.exchange} with routing key: ${routingKey}`);
+      this.logger.debug('Published event to RabbitMQ', { 
+        exchange: this.exchange, 
+        routingKey 
+      });
     } catch (error) {
-      console.error('Failed to publish event:', error);
+      this.logger.error('Failed to publish event', error as Error, { routingKey });
       this.isConnected = false;
     }
   }
@@ -166,9 +175,9 @@ export class RabbitMQEventPublisher implements IEventPublisher {
       }
 
       this.isConnected = false;
-      console.log('Disconnected from RabbitMQ');
+      this.logger.info('Disconnected from RabbitMQ');
     } catch (error) {
-      console.error('Error disconnecting from RabbitMQ:', error);
+      this.logger.error('Error disconnecting from RabbitMQ', error as Error);
       throw error;
     }
   }
