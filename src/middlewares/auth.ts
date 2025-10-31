@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import config from '../config/config';
+import { asyncContext } from '../logging/context';
 
 interface JwtPayload {
   userId: string;
@@ -43,6 +44,11 @@ export const authenticateToken = async (
         }
 
         req.user = decoded as JwtPayload;
+        
+        if (req.user?.userId && req.context) {
+          asyncContext.updateContext({ userId: req.user.userId });
+        }
+        
         next();
       },
     );

@@ -1,6 +1,8 @@
 import 'reflect-metadata';
 import { Container } from 'inversify';
 import { TYPES } from '../types/di.types';
+import { ILogger } from '../logging/logger.interface';
+import { PinoLoggerService } from '../logging/pino.logger';
 import { IUserRepository, UserRepository } from '../repositories/userRepository';
 import { IUserService, UserService } from '../services/userService';
 import { IAuthService, AuthService } from '../services/authService';
@@ -12,6 +14,7 @@ import { IUserEventsPublisher, UserEventsPublisher } from '../events/userEventsP
 
 const container = new Container();
 
+container.bind<ILogger>(TYPES.Logger).to(PinoLoggerService).inSingletonScope();
 container.bind<IUserRepository>(TYPES.UserRepository).to(UserRepository);
 container.bind<IUserService>(TYPES.UserService).to(UserService);
 container.bind<IAuthService>(TYPES.AuthService).to(AuthService);

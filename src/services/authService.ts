@@ -7,6 +7,7 @@ import { TYPES } from '../types/di.types';
 import config from '../config/config';
 import { AppError } from '../middlewares/errorHandler';
 import { IUserEventsPublisher } from '../events/userEventsPublisher';
+import { ILogger } from '../logging/logger.interface';
 
 export interface IAuthService {
   register(registerDto: RegisterDto): Promise<AuthResponseDto>;
@@ -20,13 +21,17 @@ export class AuthService implements IAuthService {
   constructor(
     @inject(TYPES.UserRepository) private userRepository: IUserRepository,
     @inject(TYPES.UserEventsPublisher) private userEventsPublisher: IUserEventsPublisher,
+    @inject(TYPES.Logger) private logger: ILogger,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
     const { email, password, firstName, lastName } = registerDto;
 
+    this.logger.info('User registration attempt', { email });
+
     const existingUser = await this.userRepository.findUserByEmail(email);
     if (existingUser) {
+      this.logger.warn('Registration failed: email already exists', { email });
       throw new AppError('User with this email already exists', 400);
     }
 
@@ -41,6 +46,8 @@ export class AuthService implements IAuthService {
     });
 
     await this.userEventsPublisher.onUserRegistered(user);
+
+    this.logger.info('User registered successfully', { userId: user.id, email: user.email });
 
     const token = this.generateToken(user.id, user.email);
 
@@ -62,15 +69,21 @@ export class AuthService implements IAuthService {
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
     const { email, password } = loginDto;
 
+    this.logger.info('User login attempt', { email });
+
     const user = await this.userRepository.findUserByEmail(email);
     if (!user) {
+      this.logger.warn('Login failed: user not found', { email });
       throw new AppError('Invalid credentials', 401);
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+      this.logger.warn('Login failed: invalid password', { email, userId: user.id });
       throw new AppError('Invalid credentials', 401);
     }
+
+    this.logger.info('User logged in successfully', { userId: user.id, email: user.email });
 
     const token = this.generateToken(user.id, user.email);
 
