@@ -181,4 +181,8 @@ export class RabbitMQEventPublisher implements IEventPublisher {
       throw error;
     }
   }
+
+  isHealthy(): boolean {
+    return this.isConnected && this.connection !== null && this.channel !== null;
+  }
 }

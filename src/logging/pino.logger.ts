@@ -31,7 +31,7 @@ export class PinoLoggerService implements ILogger {
       },
     };
 
-    if (isDevelopment) {
+    if (!isDevelopment) {
       return pino({
         ...baseConfig,
         transport: {

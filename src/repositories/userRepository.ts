@@ -1,8 +1,8 @@
-import { injectable } from 'inversify';
-import { Repository } from 'typeorm';
-import AppDataSource from '../config/database';
+import { injectable, inject } from 'inversify';
+import { Repository, DataSource } from 'typeorm';
 import User from '../models/user';
 import { CreateUserDto, UpdateUserDto } from '../dto/user.dto';
+import { TYPES } from '../types/di.types';
 
 export interface IUserRepository {
   findUserByEmail(email: string): Promise<User | null>;
@@ -16,8 +16,10 @@ export interface IUserRepository {
 export class UserRepository implements IUserRepository {
   private repository: Repository<User>;
 
-  constructor() {
-    this.repository = AppDataSource.getRepository(User);
+  constructor(
+    @inject(TYPES.DataSource) dataSource: DataSource,
+  ) {
+    this.repository = dataSource.getRepository(User);
   }
 
   async findUserByEmail(email: string): Promise<User | null> {

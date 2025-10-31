@@ -108,6 +108,7 @@ const startServer = async () => {
     server.listen(config.port, () => {
       logger.info('Server started successfully', { port: config.port });
     });
+
   } catch (error) {
     logger.error('Failed to start server', error instanceof Error ? error : new Error(String(error)));
     try { await shutdownTracing?.(); } catch {}
