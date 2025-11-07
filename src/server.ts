@@ -1,4 +1,4 @@
-import './tracing';
+import { shutdownTracing } from './tracing';
 import http from 'http';
 import app from './app';
 import config from './config/config';
@@ -7,7 +7,6 @@ import { IEventPublisher } from './events/eventPublisher';
 import { ILogger } from './logging/logger.interface';
 import { TYPES } from './types/di.types';
 import { initializeDatabase, closeDatabase } from './config/initDatabase';
-import { shutdownTracing } from './tracing';
 
 const logger = container.get<ILogger>(TYPES.Logger);
 
@@ -55,7 +54,7 @@ async function gracefulShutdown(reason: string, err?: unknown) {
       }
 
       try {
-        await shutdownTracing?.();
+        await shutdownTracing();
         logger.info('Tracing shut down');
       } catch (otelErr) {
         logger.warn('Tracing shutdown error', otelErr as any);
@@ -111,7 +110,7 @@ const startServer = async () => {
 
   } catch (error) {
     logger.error('Failed to start server', error instanceof Error ? error : new Error(String(error)));
-    try { await shutdownTracing?.(); } catch {}
+    try { await shutdownTracing(); } catch {}
     process.exit(1);
   }
 };
