@@ -1,7 +1,7 @@
 import { injectable, inject } from 'inversify';
 import { Request, Response, NextFunction } from 'express';
 import { IAuthService } from '../services/authService';
-import { RegisterDto, LoginDto } from '../dto/user.dto';
+import { RegisterDto, LoginDto, RequestPasswordResetDto, ResetPasswordDto } from '../dto/user.dto';
 import { TYPES } from '../types/di.types';
 
 @injectable()
@@ -66,6 +66,69 @@ export class AuthController {
       }
 
       const result = await this.authService.verifyEmail(token);
+
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  requestPasswordReset = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const requestPasswordResetDto = req.body as RequestPasswordResetDto;
+
+      if (!requestPasswordResetDto.email) {
+        res.status(400).json({ message: 'Email is required' });
+        return;
+      }
+
+      const result = await this.authService.requestPasswordReset(requestPasswordResetDto);
+
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  verifyPasswordResetToken = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const { token } = req.params;
+
+      if (!token) {
+        res.status(400).json({ message: 'Reset token is required' });
+        return;
+      }
+
+      const result = await this.authService.verifyPasswordResetToken(token);
+
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  resetPassword = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const resetPasswordDto = req.body as ResetPasswordDto;
+
+      if (!resetPasswordDto.token || !resetPasswordDto.newPassword) {
+        res.status(400).json({ message: 'Token and new password are required' });
+        return;
+      }
+
+      const result = await this.authService.resetPassword(resetPasswordDto);
 
       res.json(result);
     } catch (error) {

@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { IUserRepository } from '../repositories/userRepository';
-import { RegisterDto, LoginDto, AuthResponseDto } from '../dto/user.dto';
+import { RegisterDto, LoginDto, AuthResponseDto, RequestPasswordResetDto, ResetPasswordDto } from '../dto/user.dto';
 import { TYPES } from '../types/di.types';
 import config from '../config/config';
 import { AppError } from '../middlewares/errorHandler';
@@ -14,11 +14,15 @@ export interface IAuthService {
   register(registerDto: RegisterDto): Promise<AuthResponseDto>;
   login(loginDto: LoginDto): Promise<AuthResponseDto>;
   verifyEmail(token: string): Promise<{ success: boolean; message: string }>;
+  requestPasswordReset(requestPasswordResetDto: RequestPasswordResetDto): Promise<{ success: boolean; message: string }>;
+  verifyPasswordResetToken(token: string): Promise<{ success: boolean; message: string }>;
+  resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{ success: boolean; message: string }>;
 }
 
 @injectable()
 export class AuthService implements IAuthService {
   private readonly SALT_ROUNDS = 10;
+  private readonly PASSWORD_RESET_TOKEN_EXPIRY_HOURS = 1;
 
   constructor(
     @inject(TYPES.UserRepository) private userRepository: IUserRepository,
@@ -149,6 +153,90 @@ export class AuthService implements IAuthService {
 
   private generateEmailVerificationToken(): string {
     return crypto.randomBytes(32).toString('hex');
+  }
+
+  private generatePasswordResetToken(): string {
+    return crypto.randomBytes(32).toString('hex');
+  }
+
+  async requestPasswordReset(requestPasswordResetDto: RequestPasswordResetDto): Promise<{ success: boolean; message: string }> {
+    const { email } = requestPasswordResetDto;
+
+    this.logger.info('Password reset requested', { email });
+
+    const user = await this.userRepository.findUserByEmail(email);
+    if (!user) {
+      this.logger.warn('Password reset requested for non-existent user', { email });
+      return { success: true, message: 'If the email exists, a password reset link has been sent' };
+    }
+
+    const passwordResetToken = this.generatePasswordResetToken();
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + this.PASSWORD_RESET_TOKEN_EXPIRY_HOURS);
+
+    await this.userRepository.updateUser(user.id, {
+      passwordResetToken,
+      passwordResetTokenExpiresAt: expiresAt,
+    });
+
+    const updatedUser = await this.userRepository.findUserById(user.id);
+    if (updatedUser) {
+      await this.userEventsPublisher.onPasswordResetRequested(updatedUser, passwordResetToken);
+    }
+
+    this.logger.info('Password reset token generated', { userId: user.id, email: user.email });
+
+    return { success: true, message: 'If the email exists, a password reset link has been sent' };
+  }
+
+  async verifyPasswordResetToken(token: string): Promise<{ success: boolean; message: string }> {
+    this.logger.info('Password reset token verification attempt', { token });
+
+    const user = await this.userRepository.findUserByPasswordResetToken(token);
+    
+    if (!user || !user.passwordResetTokenExpiresAt) {
+      this.logger.warn('Password reset token verification failed: invalid token');
+      return { success: false, message: 'Password reset token is invalid' };
+    }
+
+    if (new Date() > user.passwordResetTokenExpiresAt) {
+      this.logger.warn('Password reset token verification failed: token expired', { userId: user.id });
+      return { success: false, message: 'Password reset token is expired' };
+    }
+
+    this.logger.info('Password reset token verified', { userId: user.id, email: user.email });
+
+    return { success: true, message: 'Password reset token is valid' };
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{ success: boolean; message: string }> {
+    const { token, newPassword } = resetPasswordDto;
+
+    this.logger.info('Password reset attempt', { token });
+
+    const user = await this.userRepository.findUserByPasswordResetToken(token);
+    
+    if (!user || !user.passwordResetTokenExpiresAt) {
+      this.logger.warn('Password reset failed: invalid token');
+      throw new AppError('Invalid or expired password reset token', 400);
+    }
+
+    if (new Date() > user.passwordResetTokenExpiresAt) {
+      this.logger.warn('Password reset failed: token expired', { userId: user.id });
+      throw new AppError('Invalid or expired password reset token', 400);
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, this.SALT_ROUNDS);
+
+    await this.userRepository.updateUser(user.id, {
+      password: hashedPassword,
+      passwordResetToken: null,
+      passwordResetTokenExpiresAt: null,
+    });
+
+    this.logger.info('Password reset successfully', { userId: user.id, email: user.email });
+
+    return { success: true, message: 'Password has been reset successfully' };
   }
 }
 

@@ -27,6 +27,8 @@ export interface UpdateUserDto {
   lastName?: string;
   emailVerified?: boolean;
   emailVerificationToken?: string | null;
+  passwordResetToken?: string | null;
+  passwordResetTokenExpiresAt?: Date | null;
   role?: string;
 }
 
@@ -44,5 +46,14 @@ export interface UserResponseDto {
 export interface AuthResponseDto {
   user: UserResponseDto;
   token: string;
+}
+
+export interface RequestPasswordResetDto {
+  email: string;
+}
+
+export interface ResetPasswordDto {
+  token: string;
+  newPassword: string;
 }
 

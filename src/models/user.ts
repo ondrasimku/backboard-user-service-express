@@ -23,6 +23,12 @@ export class User {
   @Column({ name: 'email_verification_token', nullable: true, type: 'varchar' })
   emailVerificationToken!: string | null;
 
+  @Column({ name: 'password_reset_token', nullable: true, type: 'varchar' })
+  passwordResetToken!: string | null;
+
+  @Column({ name: 'password_reset_token_expires_at', nullable: true, type: 'timestamp' })
+  passwordResetTokenExpiresAt!: Date | null;
+
   @Column({ nullable: true, default: 'user' })
   role!: string;
 

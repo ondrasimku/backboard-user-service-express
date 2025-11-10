@@ -5,6 +5,7 @@ import User from '../models/user';
 
 export interface IUserEventsPublisher {
   onUserRegistered(user: User): Promise<void>;
+  onPasswordResetRequested(user: User, token: string): Promise<void>;
 }
 
 @injectable()
@@ -21,6 +22,15 @@ export class UserEventsPublisher implements IUserEventsPublisher {
       lastName: user.lastName,
       role: user.role,
       createdAt: user.createdAt,
+    });
+  }
+
+  async onPasswordResetRequested(user: User, token: string): Promise<void> {
+    await this.eventPublisher.publish('user.password-change-requested', {
+      userId: user.id,
+      email: user.email,
+      token,
+      expiresAt: user.passwordResetTokenExpiresAt,
     });
   }
 }
