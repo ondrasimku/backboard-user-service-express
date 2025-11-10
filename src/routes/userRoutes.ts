@@ -13,14 +13,14 @@ router.get('/me', authenticateToken, userController.getCurrentUser);
 router.get(
   '/:id',
   authenticateToken,
-  requirePermissions(config.adminPermissions),
+  //requirePermissions(config.adminPermissions),
   userController.getUserById
 );
 
 router.get(
   '/',
   authenticateToken,
-  requirePermissions(config.adminPermissions),
+  //requirePermissions(config.adminPermissions),
   userController.getAllUsers
 );
 

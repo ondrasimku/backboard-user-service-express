@@ -1,12 +1,14 @@
 import { injectable, inject } from 'inversify';
 import User from '../models/user';
-import { IUserRepository } from '../repositories/userRepository';
+import { IUserRepository, PaginatedResult } from '../repositories/userRepository';
 import { TYPES } from '../types/di.types';
 import { ILogger } from '../logging/logger.interface';
+import { PaginationParams } from '../dto/pagination.dto';
 
 export interface IUserService {
   getUserById(id: string): Promise<User | null>;
   getAllUsers(): Promise<User[]>;
+  getPaginatedUsers(pagination: PaginationParams): Promise<PaginatedResult<User>>;
 }
 
 @injectable()
@@ -32,5 +34,16 @@ export class UserService implements IUserService {
     const users = await this.userRepository.getAllUsers();
     this.logger.info('Retrieved users list', { count: users.length });
     return users;
+  }
+
+  async getPaginatedUsers(pagination: PaginationParams): Promise<PaginatedResult<User>> {
+    this.logger.debug('Fetching paginated users', { pagination });
+    const result = await this.userRepository.getPaginatedUsers(pagination);
+    this.logger.info('Retrieved paginated users', {
+      page: pagination.page,
+      limit: pagination.limit,
+      total: result.total,
+    });
+    return result;
   }
 }

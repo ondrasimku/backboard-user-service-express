@@ -4,6 +4,7 @@ import { AppError } from '../middlewares/errorHandler';
 import { AuthenticatedRequest } from '../middlewares/auth';
 import { IUserService } from '../services/userService';
 import { UserResponseDto } from '../dto/user.dto';
+import { PaginatedResponse, PaginationParams } from '../dto/pagination.dto';
 import { TYPES } from '../types/di.types';
 
 @injectable()
@@ -62,9 +63,31 @@ export class UserController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const users = await this.userService.getAllUsers();
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
 
-      res.json(users.map((user) => this.mapToUserResponse(user)));
+      if (page < 1) {
+        throw new AppError('Page must be greater than 0', 400);
+      }
+
+      if (limit < 1 || limit > 100) {
+        throw new AppError('Limit must be between 1 and 100', 400);
+      }
+
+      const pagination: PaginationParams = { page, limit };
+      const result = await this.userService.getPaginatedUsers(pagination);
+
+      const response: PaginatedResponse<UserResponseDto> = {
+        data: result.data.map((user) => this.mapToUserResponse(user)),
+        meta: {
+          page,
+          limit,
+          total: result.total,
+          totalPages: Math.ceil(result.total / limit),
+        },
+      };
+
+      res.json(response);
     } catch (error) {
       next(error);
     }

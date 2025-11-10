@@ -2,7 +2,13 @@ import { injectable, inject } from 'inversify';
 import { Repository, DataSource } from 'typeorm';
 import User from '../models/user';
 import { CreateUserDto, UpdateUserDto } from '../dto/user.dto';
+import { PaginationParams } from '../dto/pagination.dto';
 import { TYPES } from '../types/di.types';
+
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+}
 
 export interface IUserRepository {
   findUserByEmail(email: string): Promise<User | null>;
@@ -10,6 +16,7 @@ export interface IUserRepository {
   createUser(userData: CreateUserDto): Promise<User>;
   updateUser(id: string, updates: UpdateUserDto): Promise<User | null>;
   getAllUsers(): Promise<User[]>;
+  getPaginatedUsers(pagination: PaginationParams): Promise<PaginatedResult<User>>;
 }
 
 @injectable()
@@ -45,5 +52,18 @@ export class UserRepository implements IUserRepository {
 
   async getAllUsers(): Promise<User[]> {
     return await this.repository.find();
+  }
+
+  async getPaginatedUsers(pagination: PaginationParams): Promise<PaginatedResult<User>> {
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await this.repository.findAndCount({
+      skip,
+      take: limit,
+      order: { createdAt: 'DESC' },
+    });
+
+    return { data, total };
   }
 }
