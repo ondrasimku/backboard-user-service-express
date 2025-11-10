@@ -57,3 +57,13 @@ export interface ResetPasswordDto {
   newPassword: string;
 }
 
+export interface UpdateUserProfileDto {
+  firstName?: string;
+  lastName?: string;
+}
+
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+}
+

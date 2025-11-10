@@ -1,8 +1,9 @@
 import { injectable, inject } from 'inversify';
 import { Request, Response, NextFunction } from 'express';
 import { IAuthService } from '../services/authService';
-import { RegisterDto, LoginDto, RequestPasswordResetDto, ResetPasswordDto } from '../dto/user.dto';
+import { RegisterDto, LoginDto, RequestPasswordResetDto, ResetPasswordDto, ChangePasswordDto } from '../dto/user.dto';
 import { TYPES } from '../types/di.types';
+import { AuthenticatedRequest } from '../middlewares/auth';
 
 @injectable()
 export class AuthController {
@@ -129,6 +130,32 @@ export class AuthController {
       }
 
       const result = await this.authService.resetPassword(resetPasswordDto);
+
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  changePassword = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const changePasswordDto = req.body as ChangePasswordDto;
+
+      if (!changePasswordDto.currentPassword || !changePasswordDto.newPassword) {
+        res.status(400).json({ message: 'Current password and new password are required' });
+        return;
+      }
+
+      if (!req.user?.userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+
+      const result = await this.authService.changePassword(req.user.userId, changePasswordDto);
 
       res.json(result);
     } catch (error) {

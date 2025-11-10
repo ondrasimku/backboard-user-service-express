@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { IUserRepository } from '../repositories/userRepository';
-import { RegisterDto, LoginDto, AuthResponseDto, RequestPasswordResetDto, ResetPasswordDto } from '../dto/user.dto';
+import { RegisterDto, LoginDto, AuthResponseDto, RequestPasswordResetDto, ResetPasswordDto, ChangePasswordDto } from '../dto/user.dto';
 import { TYPES } from '../types/di.types';
 import config from '../config/config';
 import { AppError } from '../middlewares/errorHandler';
@@ -17,6 +17,7 @@ export interface IAuthService {
   requestPasswordReset(requestPasswordResetDto: RequestPasswordResetDto): Promise<{ success: boolean; message: string }>;
   verifyPasswordResetToken(token: string): Promise<{ success: boolean; message: string }>;
   resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{ success: boolean; message: string }>;
+  changePassword(userId: string, changePasswordDto: ChangePasswordDto): Promise<{ success: boolean; message: string }>;
 }
 
 @injectable()
@@ -237,6 +238,34 @@ export class AuthService implements IAuthService {
     this.logger.info('Password reset successfully', { userId: user.id, email: user.email });
 
     return { success: true, message: 'Password has been reset successfully' };
+  }
+
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto): Promise<{ success: boolean; message: string }> {
+    const { currentPassword, newPassword } = changePasswordDto;
+
+    this.logger.info('Password change attempt', { userId });
+
+    const user = await this.userRepository.findUserById(userId);
+    if (!user) {
+      this.logger.warn('Password change failed: user not found', { userId });
+      throw new AppError('User not found', 404);
+    }
+
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      this.logger.warn('Password change failed: invalid current password', { userId });
+      throw new AppError('Current password is incorrect', 401);
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, this.SALT_ROUNDS);
+
+    await this.userRepository.updateUser(user.id, {
+      password: hashedPassword,
+    });
+
+    this.logger.info('Password changed successfully', { userId, email: user.email });
+
+    return { success: true, message: 'Password has been changed successfully' };
   }
 }
 

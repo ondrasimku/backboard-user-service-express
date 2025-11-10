@@ -206,6 +206,133 @@ describe('UserController Integration Tests', () => {
     });
   });
 
+  describe('PATCH /api/users/me', () => {
+    it('should update user first name', async () => {
+      const response = await request(app)
+        .patch('/api/users/me')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ firstName: 'UpdatedFirst' })
+        .expect(200);
+
+      expect(response.body.firstName).toBe('UpdatedFirst');
+      expect(response.body.lastName).toBe('User');
+      expect(response.body.email).toBe('testuser@example.com');
+    });
+
+    it('should update user last name', async () => {
+      const response = await request(app)
+        .patch('/api/users/me')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ lastName: 'UpdatedLast' })
+        .expect(200);
+
+      expect(response.body.firstName).toBe('Test');
+      expect(response.body.lastName).toBe('UpdatedLast');
+      expect(response.body.email).toBe('testuser@example.com');
+    });
+
+    it('should update both first and last name', async () => {
+      const response = await request(app)
+        .patch('/api/users/me')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ firstName: 'NewFirst', lastName: 'NewLast' })
+        .expect(200);
+
+      expect(response.body.firstName).toBe('NewFirst');
+      expect(response.body.lastName).toBe('NewLast');
+    });
+
+    it('should return 400 when no fields provided', async () => {
+      const response = await request(app)
+        .patch('/api/users/me')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({})
+        .expect(400);
+
+      expect(response.body.message).toContain('At least one field');
+    });
+
+    it('should return 400 when firstName is empty string', async () => {
+      const response = await request(app)
+        .patch('/api/users/me')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ firstName: '   ' })
+        .expect(400);
+
+      expect(response.body.message).toContain('firstName cannot be empty');
+    });
+
+    it('should return 400 when lastName is empty string', async () => {
+      const response = await request(app)
+        .patch('/api/users/me')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ lastName: '' })
+        .expect(400);
+
+      expect(response.body.message).toContain('lastName cannot be empty');
+    });
+
+    it('should return 400 when firstName is not a string', async () => {
+      const response = await request(app)
+        .patch('/api/users/me')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ firstName: 123 })
+        .expect(400);
+
+      expect(response.body.message).toContain('firstName must be a string');
+    });
+
+    it('should return 400 when lastName is not a string', async () => {
+      const response = await request(app)
+        .patch('/api/users/me')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ lastName: { name: 'test' } })
+        .expect(400);
+
+      expect(response.body.message).toContain('lastName must be a string');
+    });
+
+    it('should require authentication', async () => {
+      const response = await request(app)
+        .patch('/api/users/me')
+        .send({ firstName: 'Test' })
+        .expect(401);
+
+      expect(response.body.message).toContain('Missing or invalid token');
+    });
+
+    it('should not update other user fields', async () => {
+      const response = await request(app)
+        .patch('/api/users/me')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ 
+          firstName: 'NewName',
+          email: 'hacker@example.com',
+          role: 'admin'
+        })
+        .expect(200);
+
+      expect(response.body.firstName).toBe('NewName');
+      expect(response.body.email).toBe('testuser@example.com');
+      expect(response.body.role).not.toBe('admin');
+    });
+
+    it('should persist changes across multiple requests', async () => {
+      await request(app)
+        .patch('/api/users/me')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ firstName: 'PersistentName' })
+        .expect(200);
+
+      const response = await request(app)
+        .get('/api/users/me')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.firstName).toBe('PersistentName');
+    });
+  });
+
   describe('Authentication and Authorization', () => {
     it('should reject requests without Bearer prefix', async () => {
       const response = await request(app)

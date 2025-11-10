@@ -3,7 +3,7 @@ import { Response, NextFunction } from 'express';
 import { AppError } from '../middlewares/errorHandler';
 import { AuthenticatedRequest } from '../middlewares/auth';
 import { IUserService } from '../services/userService';
-import { UserResponseDto } from '../dto/user.dto';
+import { UserResponseDto, UpdateUserProfileDto } from '../dto/user.dto';
 import { PaginatedResponse, PaginationParams } from '../dto/pagination.dto';
 import { TYPES } from '../types/di.types';
 
@@ -88,6 +88,51 @@ export class UserController {
       };
 
       res.json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateCurrentUserProfile = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      if (!req.user) {
+        throw new AppError('User not authenticated', 401);
+      }
+
+      const profileData: UpdateUserProfileDto = req.body;
+
+      if (profileData.firstName !== undefined && typeof profileData.firstName !== 'string') {
+        throw new AppError('firstName must be a string', 400);
+      }
+
+      if (profileData.lastName !== undefined && typeof profileData.lastName !== 'string') {
+        throw new AppError('lastName must be a string', 400);
+      }
+
+      if (profileData.firstName !== undefined && profileData.firstName.trim().length === 0) {
+        throw new AppError('firstName cannot be empty', 400);
+      }
+
+      if (profileData.lastName !== undefined && profileData.lastName.trim().length === 0) {
+        throw new AppError('lastName cannot be empty', 400);
+      }
+
+      if (profileData.firstName === undefined && profileData.lastName === undefined) {
+        throw new AppError('At least one field (firstName or lastName) must be provided', 400);
+      }
+
+      const updatedUser = await this.userService.updateUserProfile(req.user.userId, profileData);
+
+      if (!updatedUser) {
+        res.status(404).json({ message: 'User not found' });
+        return;
+      }
+
+      res.json(this.mapToUserResponse(updatedUser));
     } catch (error) {
       next(error);
     }

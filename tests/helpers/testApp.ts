@@ -16,6 +16,7 @@ import { MockLogger } from './mockLogger';
 
 export class MockEventPublisher implements IUserEventsPublisher {
   onUserRegistered = jest.fn();
+  onPasswordResetRequested = jest.fn();
 }
 
 export function createTestApp(dataSource: DataSource) {
@@ -44,9 +45,11 @@ export function createTestApp(dataSource: DataSource) {
   authRouter.post('/register', authController.register);
   authRouter.post('/login', authController.login);
   authRouter.get('/verify/:token', authController.verifyEmail);
+  authRouter.post('/change-password', authenticateToken, authController.changePassword);
 
   const userRouter = Router();
   userRouter.get('/me', authenticateToken, userController.getCurrentUser);
+  userRouter.patch('/me', authenticateToken, userController.updateCurrentUserProfile);
   userRouter.get('/:id', authenticateToken, userController.getUserById);
   userRouter.get('/', authenticateToken, userController.getAllUsers);
 

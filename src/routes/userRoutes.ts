@@ -10,6 +10,8 @@ const userController = container.get<UserController>(TYPES.UserController);
 
 router.get('/me', authenticateToken, userController.getCurrentUser);
 
+router.patch('/me', authenticateToken, userController.updateCurrentUserProfile);
+
 router.get(
   '/:id',
   authenticateToken,

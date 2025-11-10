@@ -226,5 +226,136 @@ describe('AuthController Integration Tests', () => {
       expect(response.body.message).toContain('Invalid verification token');
     });
   });
+
+  describe('POST /api/auth/change-password', () => {
+    let authToken: string;
+    const testPassword = 'TestPassword123!';
+    const newPassword = 'NewSecurePassword456!';
+
+    beforeEach(async () => {
+      const registerDto: RegisterDto = {
+        email: 'changepassword@example.com',
+        password: testPassword,
+        firstName: 'Change',
+        lastName: 'Password',
+      };
+
+      const registerResponse = await request(app)
+        .post('/api/auth/register')
+        .send(registerDto);
+
+      authToken = registerResponse.body.token;
+    });
+
+    it('should change password successfully with valid credentials', async () => {
+      const changePasswordDto = {
+        currentPassword: testPassword,
+        newPassword: newPassword,
+      };
+
+      const response = await request(app)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(changePasswordDto)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.message).toContain('changed successfully');
+
+      const loginDto: LoginDto = {
+        email: 'changepassword@example.com',
+        password: newPassword,
+      };
+
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send(loginDto)
+        .expect(200);
+
+      expect(loginResponse.body).toHaveProperty('token');
+    });
+
+    it('should return 401 when current password is incorrect', async () => {
+      const changePasswordDto = {
+        currentPassword: 'WrongPassword123!',
+        newPassword: newPassword,
+      };
+
+      const response = await request(app)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(changePasswordDto)
+        .expect(401);
+
+      expect(response.body.message).toContain('Current password is incorrect');
+    });
+
+    it('should return 401 when no auth token is provided', async () => {
+      const changePasswordDto = {
+        currentPassword: testPassword,
+        newPassword: newPassword,
+      };
+
+      const response = await request(app)
+        .post('/api/auth/change-password')
+        .send(changePasswordDto)
+        .expect(401);
+
+      expect(response.body.message).toContain('token');
+    });
+
+    it('should return 400 when current password is missing', async () => {
+      const changePasswordDto = {
+        newPassword: newPassword,
+      };
+
+      const response = await request(app)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(changePasswordDto)
+        .expect(400);
+
+      expect(response.body.message).toContain('required');
+    });
+
+    it('should return 400 when new password is missing', async () => {
+      const changePasswordDto = {
+        currentPassword: testPassword,
+      };
+
+      const response = await request(app)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(changePasswordDto)
+        .expect(400);
+
+      expect(response.body.message).toContain('required');
+    });
+
+    it('should not allow login with old password after change', async () => {
+      const changePasswordDto = {
+        currentPassword: testPassword,
+        newPassword: newPassword,
+      };
+
+      await request(app)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(changePasswordDto)
+        .expect(200);
+
+      const loginDto: LoginDto = {
+        email: 'changepassword@example.com',
+        password: testPassword,
+      };
+
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send(loginDto)
+        .expect(401);
+
+      expect(response.body.message).toContain('Invalid credentials');
+    });
+  });
 });
 
