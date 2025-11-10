@@ -10,7 +10,7 @@
     "module": "commonjs",
     "target": "es2020",
     "lib": ["esnext"],
-    "types": ["node", "reflect-metadata"],
+    "types": ["node", "reflect-metadata", "jest"],
 
     "strict": true,
     "esModuleInterop": true,

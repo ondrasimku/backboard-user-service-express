@@ -51,5 +51,26 @@ export class AuthController {
       next(error);
     }
   };
+
+  verifyEmail = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const { token } = req.params;
+
+      if (!token) {
+        res.status(400).json({ message: 'Verification token is required' });
+        return;
+      }
+
+      const result = await this.authService.verifyEmail(token);
+
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 

@@ -1,6 +1,7 @@
 import { injectable, inject } from 'inversify';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { IUserRepository } from '../repositories/userRepository';
 import { RegisterDto, LoginDto, AuthResponseDto } from '../dto/user.dto';
 import { TYPES } from '../types/di.types';
@@ -12,6 +13,7 @@ import { ILogger } from '../logging/logger.interface';
 export interface IAuthService {
   register(registerDto: RegisterDto): Promise<AuthResponseDto>;
   login(loginDto: LoginDto): Promise<AuthResponseDto>;
+  verifyEmail(token: string): Promise<{ success: boolean; message: string }>;
 }
 
 @injectable()
@@ -36,6 +38,7 @@ export class AuthService implements IAuthService {
     }
 
     const hashedPassword = await bcrypt.hash(password, this.SALT_ROUNDS);
+    const emailVerificationToken = this.generateEmailVerificationToken();
 
     const user = await this.userRepository.createUser({
       email,
@@ -43,6 +46,7 @@ export class AuthService implements IAuthService {
       firstName,
       lastName,
       role: 'user',
+      emailVerificationToken,
     });
 
     await this.userEventsPublisher.onUserRegistered(user);
@@ -116,6 +120,35 @@ export class AuthService implements IAuthService {
       algorithm: 'RS256',
       expiresIn: '7d',
     });
+  }
+
+  async verifyEmail(token: string): Promise<{ success: boolean; message: string }> {
+    this.logger.info('Email verification attempt', { token });
+
+    const user = await this.userRepository.findUserByVerificationToken(token);
+    
+    if (!user) {
+      this.logger.warn('Email verification failed: invalid token');
+      throw new AppError('Invalid verification token', 400);
+    }
+
+    if (user.emailVerified) {
+      this.logger.info('Email already verified', { userId: user.id, email: user.email });
+      return { success: true, message: 'Email already verified' };
+    }
+
+    await this.userRepository.updateUser(user.id, {
+      emailVerified: true,
+      emailVerificationToken: null,
+    });
+
+    this.logger.info('Email verified successfully', { userId: user.id, email: user.email });
+
+    return { success: true, message: 'Email verified successfully' };
+  }
+
+  private generateEmailVerificationToken(): string {
+    return crypto.randomBytes(32).toString('hex');
   }
 }
 

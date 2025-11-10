@@ -21,4 +21,4 @@ pnpm-debug.log*
 *.swp
 
 dist/
-build/
+build/**/tests/setup/.testcontainer-state.json

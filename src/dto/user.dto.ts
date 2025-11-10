@@ -16,6 +16,7 @@ export interface CreateUserDto {
   firstName: string;
   lastName: string;
   emailVerified?: boolean;
+  emailVerificationToken?: string | null;
   role?: string;
 }
 
@@ -25,6 +26,7 @@ export interface UpdateUserDto {
   firstName?: string;
   lastName?: string;
   emailVerified?: boolean;
+  emailVerificationToken?: string | null;
   role?: string;
 }
 

@@ -13,6 +13,7 @@ export interface PaginatedResult<T> {
 export interface IUserRepository {
   findUserByEmail(email: string): Promise<User | null>;
   findUserById(id: string): Promise<User | null>;
+  findUserByVerificationToken(token: string): Promise<User | null>;
   createUser(userData: CreateUserDto): Promise<User>;
   updateUser(id: string, updates: UpdateUserDto): Promise<User | null>;
   getAllUsers(): Promise<User[]>;
@@ -35,6 +36,10 @@ export class UserRepository implements IUserRepository {
 
   async findUserById(id: string): Promise<User | null> {
     return await this.repository.findOne({ where: { id } });
+  }
+
+  async findUserByVerificationToken(token: string): Promise<User | null> {
+    return await this.repository.findOne({ where: { emailVerificationToken: token } });
   }
 
   async createUser(userData: CreateUserDto): Promise<User> {

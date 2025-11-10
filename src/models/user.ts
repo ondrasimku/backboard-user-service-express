@@ -20,6 +20,9 @@ export class User {
   @Column({ name: 'email_verified', default: false })
   emailVerified!: boolean;
 
+  @Column({ name: 'email_verification_token', nullable: true, type: 'varchar' })
+  emailVerificationToken!: string | null;
+
   @Column({ nullable: true, default: 'user' })
   role!: string;
 
