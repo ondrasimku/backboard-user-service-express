@@ -1,5 +1,6 @@
 import { injectable, inject } from 'inversify';
 import { connect, ChannelModel, Channel, Options } from 'amqplib';
+import { randomUUID } from 'crypto';
 import { IEventPublisher, EventPayload } from './eventPublisher';
 import { ILogger } from '../logging/logger.interface';
 import { TYPES } from '../types/di.types';
@@ -144,7 +145,14 @@ export class RabbitMQEventPublisher implements IEventPublisher {
     }
 
     try {
-      const message = Buffer.from(JSON.stringify(payload));
+      const envelope = {
+        event: routingKey,
+        source: 'user-service',
+        id: randomUUID(),
+        data: payload,
+      };
+      
+      const message = Buffer.from(JSON.stringify(envelope));
       
       this.channel.publish(this.exchange, routingKey, message, {
         persistent: true,
