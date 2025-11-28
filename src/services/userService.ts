@@ -11,6 +11,8 @@ export interface IUserService {
   getAllUsers(): Promise<User[]>;
   getPaginatedUsers(pagination: PaginationParams): Promise<PaginatedResult<User>>;
   updateUserProfile(userId: string, profileData: UpdateUserProfileDto): Promise<User | null>;
+  setUserAvatar(userId: string, fileId: string, avatarUrl: string): Promise<User | null>;
+  getUserMetrics(): Promise<{ userCount: number }>;
 }
 
 @injectable()
@@ -71,5 +73,43 @@ export class UserService implements IUserService {
     
     this.logger.info('User profile updated successfully', { userId });
     return updatedUser;
+  }
+
+  async setUserAvatar(userId: string, fileId: string, avatarUrl: string): Promise<User | null> {
+    this.logger.debug('Setting user avatar', { userId, fileId, avatarUrl });
+
+    if (!fileId || fileId.trim().length === 0) {
+      throw new Error('fileId is required and cannot be empty');
+    }
+
+    if (!avatarUrl || avatarUrl.trim().length === 0) {
+      throw new Error('avatarUrl is required and cannot be empty');
+    }
+
+    try {
+      new URL(avatarUrl);
+    } catch {
+      throw new Error('avatarUrl must be a valid URL');
+    }
+
+    const updatedUser = await this.userRepository.updateUser(userId, {
+      avatarFileId: fileId,
+      avatarUrl: avatarUrl,
+    });
+
+    if (!updatedUser) {
+      this.logger.warn('User not found for avatar update', { userId });
+      return null;
+    }
+
+    this.logger.info('User avatar updated successfully', { userId });
+    return updatedUser;
+  }
+
+  async getUserMetrics(): Promise<{ userCount: number }> {
+    this.logger.debug('Fetching user metrics');
+    const userCount = await this.userRepository.getUserCount();
+    this.logger.info('Retrieved user metrics', { userCount });
+    return { userCount };
   }
 }

@@ -30,6 +30,8 @@ export interface UpdateUserDto {
   passwordResetToken?: string | null;
   passwordResetTokenExpiresAt?: Date | null;
   role?: string;
+  avatarUrl?: string | null;
+  avatarFileId?: string | null;
 }
 
 export interface UserResponseDto {
@@ -39,6 +41,8 @@ export interface UserResponseDto {
   lastName: string;
   emailVerified: boolean;
   role: string;
+  avatarUrl?: string | null;
+  avatarFileId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,5 +69,10 @@ export interface UpdateUserProfileDto {
 export interface ChangePasswordDto {
   currentPassword: string;
   newPassword: string;
+}
+
+export interface SetAvatarDto {
+  fileId: string;
+  avatarUrl: string;
 }
 

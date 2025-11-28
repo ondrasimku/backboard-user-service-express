@@ -32,6 +32,12 @@ export class User {
   @Column({ nullable: true, default: 'user' })
   role!: string;
 
+  @Column({ name: 'avatar_url', nullable: true, type: 'varchar' })
+  avatarUrl!: string | null;
+
+  @Column({ name: 'avatar_file_id', nullable: true, type: 'varchar' })
+  avatarFileId!: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

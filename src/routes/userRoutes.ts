@@ -12,6 +12,15 @@ router.get('/me', authenticateToken, userController.getCurrentUser);
 
 router.patch('/me', authenticateToken, userController.updateCurrentUserProfile);
 
+router.patch('/me/avatar', authenticateToken, userController.setAvatar);
+
+router.get(
+  '/metrics',
+  authenticateToken,
+  //requirePermissions(config.adminPermissions),
+  userController.getMetrics
+);
+
 router.get(
   '/:id',
   authenticateToken,

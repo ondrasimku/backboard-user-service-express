@@ -3,7 +3,7 @@ import { Response, NextFunction } from 'express';
 import { AppError } from '../middlewares/errorHandler';
 import { AuthenticatedRequest } from '../middlewares/auth';
 import { IUserService } from '../services/userService';
-import { UserResponseDto, UpdateUserProfileDto } from '../dto/user.dto';
+import { UserResponseDto, UpdateUserProfileDto, SetAvatarDto } from '../dto/user.dto';
 import { PaginatedResponse, PaginationParams } from '../dto/pagination.dto';
 import { TYPES } from '../types/di.types';
 
@@ -138,6 +138,56 @@ export class UserController {
     }
   };
 
+  setAvatar = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      if (!req.user) {
+        throw new AppError('User not authenticated', 401);
+      }
+
+      const avatarData: SetAvatarDto = req.body;
+
+      if (!avatarData.fileId || typeof avatarData.fileId !== 'string' || avatarData.fileId.trim().length === 0) {
+        throw new AppError('fileId is required and cannot be empty', 400);
+      }
+
+      if (!avatarData.avatarUrl || typeof avatarData.avatarUrl !== 'string' || avatarData.avatarUrl.trim().length === 0) {
+        throw new AppError('avatarUrl is required and cannot be empty', 400);
+      }
+
+      const updatedUser = await this.userService.setUserAvatar(
+        req.user.userId,
+        avatarData.fileId,
+        avatarData.avatarUrl,
+      );
+
+      if (!updatedUser) {
+        res.status(404).json({ message: 'User not found' });
+        return;
+      }
+
+      res.json(this.mapToUserResponse(updatedUser));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getMetrics = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const metrics = await this.userService.getUserMetrics();
+      res.json(metrics);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   private mapToUserResponse(user: {
     id: string;
     email: string;
@@ -145,6 +195,8 @@ export class UserController {
     lastName: string;
     emailVerified: boolean;
     role: string;
+    avatarUrl?: string | null;
+    avatarFileId?: string | null;
     createdAt: Date;
     updatedAt: Date;
   }): UserResponseDto {
@@ -155,6 +207,8 @@ export class UserController {
       lastName: user.lastName,
       emailVerified: user.emailVerified,
       role: user.role,
+      avatarUrl: user.avatarUrl ?? null,
+      avatarFileId: user.avatarFileId ?? null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

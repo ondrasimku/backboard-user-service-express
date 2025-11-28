@@ -19,6 +19,7 @@ export interface IUserRepository {
   updateUser(id: string, updates: UpdateUserDto): Promise<User | null>;
   getAllUsers(): Promise<User[]>;
   getPaginatedUsers(pagination: PaginationParams): Promise<PaginatedResult<User>>;
+  getUserCount(): Promise<number>;
 }
 
 @injectable()
@@ -75,5 +76,9 @@ export class UserRepository implements IUserRepository {
     });
 
     return { data, total };
+  }
+
+  async getUserCount(): Promise<number> {
+    return await this.repository.count();
   }
 }
