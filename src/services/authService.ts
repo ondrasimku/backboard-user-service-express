@@ -12,6 +12,7 @@ import { ILogger } from '../logging/logger.interface';
 import { IGoogleAuthService } from './googleAuthService';
 import { IUserAuthService } from './userAuthService';
 import User from '../models/user';
+import { generateKid } from '../utils/jwt';
 
 export interface IAuthService {
   register(registerDto: RegisterDto): Promise<AuthResponseDto>;
@@ -142,6 +143,10 @@ export class AuthService implements IAuthService {
 
     return jwt.sign(payload, config.jwt.privateKey, {
       algorithm: 'RS256',
+      header: {
+        alg: 'RS256',
+        kid: generateKid(config.jwt.publicKey),
+      },
     });
   }
 
