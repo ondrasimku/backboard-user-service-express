@@ -6,6 +6,7 @@ export const TYPES = {
   UserController: Symbol.for('UserController'),
   AuthService: Symbol.for('AuthService'),
   AuthController: Symbol.for('AuthController'),
+  GoogleAuthService: Symbol.for('GoogleAuthService'),
   HealthService: Symbol.for('HealthService'),
   HealthController: Symbol.for('HealthController'),
   EventPublisher: Symbol.for('EventPublisher'),

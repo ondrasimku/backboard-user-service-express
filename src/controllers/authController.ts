@@ -1,7 +1,7 @@
 import { injectable, inject } from 'inversify';
 import { Request, Response, NextFunction } from 'express';
 import { IAuthService } from '../services/authService';
-import { RegisterDto, LoginDto, RequestPasswordResetDto, ResetPasswordDto, ChangePasswordDto } from '../dto/user.dto';
+import { RegisterDto, LoginDto, RequestPasswordResetDto, ResetPasswordDto, ChangePasswordDto, GoogleOAuthDto } from '../dto/user.dto';
 import { TYPES } from '../types/di.types';
 import { AuthenticatedRequest } from '../middlewares/auth';
 
@@ -156,6 +156,27 @@ export class AuthController {
       }
 
       const result = await this.authService.changePassword(req.user.userId, changePasswordDto);
+
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  googleOAuth = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const googleOAuthDto = req.body as GoogleOAuthDto;
+
+      if (!googleOAuthDto.idToken) {
+        res.status(400).json({ message: 'ID token is required' });
+        return;
+      }
+
+      const result = await this.authService.googleOAuth(googleOAuthDto);
 
       res.json(result);
     } catch (error) {

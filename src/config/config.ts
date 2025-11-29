@@ -26,12 +26,18 @@ interface RabbitMQConfig {
   exchange: string;
 }
 
+interface GoogleOAuthConfig {
+  clientId: string;
+  clientSecret: string;
+}
+
 interface Config {
   port: number;
   nodeEnv: string;
   database: DatabaseConfig;
   jwt: JwtConfig;
   rabbitmq: RabbitMQConfig;
+  googleOAuth: GoogleOAuthConfig;
   adminPermissions: string[];
 }
 
@@ -85,6 +91,10 @@ export const config: Config = {
     url: process.env.RABBITMQ_URL || 'amqp://backboard:backboardpass@backboard-rabbitmq:5672',
     vhost: process.env.RABBITMQ_VHOST || '/',
     exchange: process.env.RABBITMQ_EXCHANGE || 'user.events',
+  },
+  googleOAuth: {
+    clientId: process.env.GOOGLE_CLIENT_ID || '',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
   },
   adminPermissions: (process.env.ADMIN_PERMISSIONS || 'read:users,write:users').split(','),
 };

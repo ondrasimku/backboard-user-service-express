@@ -3,16 +3,19 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { IUserRepository } from '../repositories/userRepository';
-import { RegisterDto, LoginDto, AuthResponseDto, RequestPasswordResetDto, ResetPasswordDto, ChangePasswordDto } from '../dto/user.dto';
+import { RegisterDto, LoginDto, AuthResponseDto, RequestPasswordResetDto, ResetPasswordDto, ChangePasswordDto, GoogleOAuthDto, GoogleOAuthResponseDto } from '../dto/user.dto';
 import { TYPES } from '../types/di.types';
 import config from '../config/config';
 import { AppError } from '../middlewares/errorHandler';
 import { IUserEventsPublisher } from '../events/userEventsPublisher';
 import { ILogger } from '../logging/logger.interface';
+import { IGoogleAuthService } from './googleAuthService';
+import User from '../models/user';
 
 export interface IAuthService {
   register(registerDto: RegisterDto): Promise<AuthResponseDto>;
   login(loginDto: LoginDto): Promise<AuthResponseDto>;
+  googleOAuth(googleOAuthDto: GoogleOAuthDto): Promise<GoogleOAuthResponseDto>;
   verifyEmail(token: string): Promise<{ success: boolean; message: string }>;
   requestPasswordReset(requestPasswordResetDto: RequestPasswordResetDto): Promise<{ success: boolean; message: string }>;
   verifyPasswordResetToken(token: string): Promise<{ success: boolean; message: string }>;
@@ -28,6 +31,7 @@ export class AuthService implements IAuthService {
   constructor(
     @inject(TYPES.UserRepository) private userRepository: IUserRepository,
     @inject(TYPES.UserEventsPublisher) private userEventsPublisher: IUserEventsPublisher,
+    @inject(TYPES.GoogleAuthService) private googleAuthService: IGoogleAuthService,
     @inject(TYPES.Logger) private logger: ILogger,
   ) {}
 
@@ -61,16 +65,7 @@ export class AuthService implements IAuthService {
     const token = this.generateToken(user.id, user.email);
 
     return {
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        emailVerified: user.emailVerified,
-        role: user.role,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
+      user: this.mapUserToDto(user),
       token,
     };
   }
@@ -86,6 +81,11 @@ export class AuthService implements IAuthService {
       throw new AppError('Invalid credentials', 401);
     }
 
+    if (!user.password) {
+      this.logger.warn('Login failed: user has no password (OAuth-only account)', { email, userId: user.id });
+      throw new AppError('Invalid credentials', 401);
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       this.logger.warn('Login failed: invalid password', { email, userId: user.id });
@@ -97,16 +97,7 @@ export class AuthService implements IAuthService {
     const token = this.generateToken(user.id, user.email);
 
     return {
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        emailVerified: user.emailVerified,
-        role: user.role,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
+      user: this.mapUserToDto(user),
       token,
     };
   }
@@ -125,6 +116,95 @@ export class AuthService implements IAuthService {
       algorithm: 'RS256',
       expiresIn: '7d',
     });
+  }
+
+  private mapUserToDto(user: User): AuthResponseDto['user'] {
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      emailVerified: user.emailVerified,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+      avatarFileId: user.avatarFileId,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  }
+
+  async googleOAuth(googleOAuthDto: GoogleOAuthDto): Promise<GoogleOAuthResponseDto> {
+    const { idToken } = googleOAuthDto;
+
+    this.logger.info('Google OAuth attempt');
+
+    const googleUser = await this.googleAuthService.verifyIdToken(idToken);
+
+    let user = await this.userRepository.findUserByGoogleId(googleUser.sub);
+
+    if (user) {
+      // Existing OAuth user - login
+      this.logger.info('Google OAuth: existing OAuth user login', { userId: user.id, email: user.email });
+      const token = this.generateToken(user.id, user.email);
+      return {
+        user: this.mapUserToDto(user),
+        token,
+        isNewUser: false,
+        accountLinked: false,
+      };
+    }
+
+    const existingUser = await this.userRepository.findUserByEmail(googleUser.email);
+
+    if (existingUser) {
+      this.logger.info('Google OAuth: linking to existing account', { userId: existingUser.id, email: existingUser.email });
+      
+      await this.userRepository.updateUser(existingUser.id, {
+        googleId: googleUser.sub,
+        authProvider: existingUser.authProvider === 'local' ? 'local' : 'google',
+        emailVerified: true,
+      });
+
+      const updatedUser = await this.userRepository.findUserById(existingUser.id);
+      if (!updatedUser) {
+        throw new AppError('Failed to update user', 500);
+      }
+
+      const token = this.generateToken(updatedUser.id, updatedUser.email);
+
+      return {
+        user: this.mapUserToDto(updatedUser),
+        token,
+        isNewUser: false,
+        accountLinked: true,
+      };
+    }
+
+    this.logger.info('Google OAuth: creating new user', { email: googleUser.email });
+
+    const newUser = await this.userRepository.createUser({
+      email: googleUser.email,
+      password: null,
+      firstName: googleUser.given_name || '',
+      lastName: googleUser.family_name || '',
+      googleId: googleUser.sub,
+      authProvider: 'google',
+      emailVerified: true,
+      role: 'user',
+    });
+
+    await this.userEventsPublisher.onUserRegistered(newUser);
+
+    this.logger.info('Google OAuth: user created successfully', { userId: newUser.id, email: newUser.email });
+
+    const token = this.generateToken(newUser.id, newUser.email);
+
+    return {
+      user: this.mapUserToDto(newUser),
+      token,
+      isNewUser: true,
+      accountLinked: false,
+    };
   }
 
   async verifyEmail(token: string): Promise<{ success: boolean; message: string }> {
@@ -249,6 +329,11 @@ export class AuthService implements IAuthService {
     if (!user) {
       this.logger.warn('Password change failed: user not found', { userId });
       throw new AppError('User not found', 404);
+    }
+
+    if (!user.password) {
+      this.logger.warn('Password change failed: user has no password (OAuth-only account)', { userId });
+      throw new AppError('Cannot change password for OAuth-only account', 400);
     }
 
     const isPasswordValid = await bcrypt.compare(currentPassword, user.password);

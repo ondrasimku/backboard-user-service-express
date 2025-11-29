@@ -9,6 +9,7 @@ const authController = container.get<AuthController>(TYPES.AuthController);
 
 router.post('/register', authController.register);
 router.post('/login', authController.login);
+router.post('/google', authController.googleOAuth);
 router.get('/verify/:token', authController.verifyEmail);
 router.post('/password-reset/request', authController.requestPasswordReset);
 router.get('/password-reset/verify/:token', authController.verifyPasswordResetToken);

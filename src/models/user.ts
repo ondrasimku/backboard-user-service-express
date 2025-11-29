@@ -8,8 +8,8 @@ export class User {
   @Column({ unique: true })
   email!: string;
 
-  @Column()
-  password!: string;
+  @Column({ nullable: true, type: 'varchar' })
+  password!: string | null;
 
   @Column({ name: 'first_name' })
   firstName!: string;
@@ -37,6 +37,12 @@ export class User {
 
   @Column({ name: 'avatar_file_id', nullable: true, type: 'varchar' })
   avatarFileId!: string | null;
+
+  @Column({ name: 'google_id', nullable: true, unique: true, type: 'varchar' })
+  googleId!: string | null;
+
+  @Column({ name: 'auth_provider', nullable: true, default: 'local', type: 'varchar' })
+  authProvider!: 'local' | 'google';
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

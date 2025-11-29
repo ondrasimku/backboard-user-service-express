@@ -12,17 +12,19 @@ export interface LoginDto {
 
 export interface CreateUserDto {
   email: string;
-  password: string;
+  password: string | null;
   firstName: string;
   lastName: string;
   emailVerified?: boolean;
   emailVerificationToken?: string | null;
   role?: string;
+  googleId?: string | null;
+  authProvider?: 'local' | 'google';
 }
 
 export interface UpdateUserDto {
   email?: string;
-  password?: string;
+  password?: string | null;
   firstName?: string;
   lastName?: string;
   emailVerified?: boolean;
@@ -32,6 +34,8 @@ export interface UpdateUserDto {
   role?: string;
   avatarUrl?: string | null;
   avatarFileId?: string | null;
+  googleId?: string | null;
+  authProvider?: 'local' | 'google';
 }
 
 export interface UserResponseDto {
@@ -74,5 +78,14 @@ export interface ChangePasswordDto {
 export interface SetAvatarDto {
   fileId: string;
   avatarUrl: string;
+}
+
+export interface GoogleOAuthDto {
+  idToken: string;
+}
+
+export interface GoogleOAuthResponseDto extends AuthResponseDto {
+  isNewUser: boolean;
+  accountLinked: boolean;
 }
 
