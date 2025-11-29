@@ -22,6 +22,9 @@ export class UserEventsPublisher implements IUserEventsPublisher {
       lastName: user.lastName,
       role: user.role,
       createdAt: user.createdAt,
+      emailVerified: user.emailVerified,
+      emailVerificationToken: user.emailVerificationToken,
+      authProvider: user.authProvider,
     });
   }
 
