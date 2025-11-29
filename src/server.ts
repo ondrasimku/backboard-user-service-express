@@ -5,6 +5,7 @@ import config from './config/config';
 import container from './config/container';
 import { IEventPublisher } from './events/eventPublisher';
 import { ILogger } from './logging/logger.interface';
+import { IPermissionService } from './services/permissionService';
 import { TYPES } from './types/di.types';
 import { initializeDatabase, closeDatabase } from './config/initDatabase';
 
@@ -81,6 +82,17 @@ const startServer = async () => {
 
     await initializeDatabase(logger);
     logger.info('Database initialized successfully');
+
+    // Ensure all permissions exist in the database
+    try {
+      const permissionService = container.get<IPermissionService>(TYPES.PermissionService);
+      await permissionService.ensurePermissionsExist();
+      logger.info('Permissions ensured in database');
+    } catch (error) {
+      logger.warn('Failed to ensure permissions exist', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     eventPublisher = container.get<IEventPublisher>(TYPES.EventPublisher);
     try {

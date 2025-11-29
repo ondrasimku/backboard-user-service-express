@@ -10,6 +10,7 @@ import { AppError } from '../middlewares/errorHandler';
 import { IUserEventsPublisher } from '../events/userEventsPublisher';
 import { ILogger } from '../logging/logger.interface';
 import { IGoogleAuthService } from './googleAuthService';
+import { IUserAuthService } from './userAuthService';
 import User from '../models/user';
 
 export interface IAuthService {
@@ -32,6 +33,7 @@ export class AuthService implements IAuthService {
     @inject(TYPES.UserRepository) private userRepository: IUserRepository,
     @inject(TYPES.UserEventsPublisher) private userEventsPublisher: IUserEventsPublisher,
     @inject(TYPES.GoogleAuthService) private googleAuthService: IGoogleAuthService,
+    @inject(TYPES.UserAuthService) private userAuthService: IUserAuthService,
     @inject(TYPES.Logger) private logger: ILogger,
   ) {}
 
@@ -54,7 +56,6 @@ export class AuthService implements IAuthService {
       password: hashedPassword,
       firstName,
       lastName,
-      role: 'user',
       emailVerificationToken,
     });
 
@@ -62,7 +63,7 @@ export class AuthService implements IAuthService {
 
     this.logger.info('User registered successfully', { userId: user.id, email: user.email });
 
-    const token = this.generateToken(user.id, user.email);
+    const token = await this.generateToken(user.id);
 
     return {
       user: this.mapUserToDto(user),
@@ -94,7 +95,7 @@ export class AuthService implements IAuthService {
 
     this.logger.info('User logged in successfully', { userId: user.id, email: user.email });
 
-    const token = this.generateToken(user.id, user.email);
+    const token = await this.generateToken(user.id);
 
     return {
       user: this.mapUserToDto(user),
@@ -102,19 +103,45 @@ export class AuthService implements IAuthService {
     };
   }
 
-  private generateToken(userId: string, email: string): string {
+  private async generateToken(userId: string): Promise<string> {
     if (!config.jwt.privateKey) {
       throw new Error('JWT private key not configured');
     }
 
+    const authInfo = await this.userAuthService.resolveUserAuthInfo(userId);
+    if (!authInfo) {
+      throw new Error('User not found');
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    
+    let expiresInSeconds: number;
+    if (config.jwt.expiresIn.endsWith('h')) {
+      expiresInSeconds = parseInt(config.jwt.expiresIn) * 3600;
+    } else if (config.jwt.expiresIn.endsWith('d')) {
+      expiresInSeconds = parseInt(config.jwt.expiresIn) * 24 * 3600;
+    } else if (config.jwt.expiresIn.endsWith('m')) {
+      expiresInSeconds = parseInt(config.jwt.expiresIn) * 60;
+    } else {
+      expiresInSeconds = parseInt(config.jwt.expiresIn) || 3600;
+    }
+
     const payload = {
-      userId,
-      email,
+      sub: authInfo.userId,
+      iss: config.jwt.issuer,
+      aud: config.jwt.audience,
+      iat: now,
+      exp: now + expiresInSeconds,
+      nbf: now,
+      org_id: authInfo.organizationId,
+      roles: authInfo.roles,
+      permissions: authInfo.permissions,
+      email: authInfo.email,
+      name: authInfo.name,
     };
 
     return jwt.sign(payload, config.jwt.privateKey, {
       algorithm: 'RS256',
-      expiresIn: '7d',
     });
   }
 
@@ -125,7 +152,14 @@ export class AuthService implements IAuthService {
       firstName: user.firstName,
       lastName: user.lastName,
       emailVerified: user.emailVerified,
-      role: user.role,
+      roles: (user.roles || []).map(role => ({
+        id: role.id,
+        name: role.name,
+        description: role.description,
+        permissions: role.permissions?.map(p => p.name) || [],
+        createdAt: role.createdAt,
+        updatedAt: role.updatedAt,
+      })),
       avatarUrl: user.avatarUrl,
       avatarFileId: user.avatarFileId,
       createdAt: user.createdAt,
@@ -143,9 +177,8 @@ export class AuthService implements IAuthService {
     let user = await this.userRepository.findUserByGoogleId(googleUser.sub);
 
     if (user) {
-      // Existing OAuth user - login
       this.logger.info('Google OAuth: existing OAuth user login', { userId: user.id, email: user.email });
-      const token = this.generateToken(user.id, user.email);
+      const token = await this.generateToken(user.id);
       return {
         user: this.mapUserToDto(user),
         token,
@@ -170,7 +203,7 @@ export class AuthService implements IAuthService {
         throw new AppError('Failed to update user', 500);
       }
 
-      const token = this.generateToken(updatedUser.id, updatedUser.email);
+      const token = await this.generateToken(updatedUser.id);
 
       return {
         user: this.mapUserToDto(updatedUser),
@@ -190,14 +223,13 @@ export class AuthService implements IAuthService {
       googleId: googleUser.sub,
       authProvider: 'google',
       emailVerified: true,
-      role: 'user',
     });
 
     await this.userEventsPublisher.onUserRegistered(newUser);
 
     this.logger.info('Google OAuth: user created successfully', { userId: newUser.id, email: newUser.email });
 
-    const token = this.generateToken(newUser.id, newUser.email);
+    const token = await this.generateToken(newUser.id);
 
     return {
       user: this.mapUserToDto(newUser),

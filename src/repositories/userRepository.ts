@@ -1,6 +1,7 @@
 import { injectable, inject } from 'inversify';
 import { Repository, DataSource } from 'typeorm';
 import User from '../models/user';
+import { Role } from '../models/role';
 import { CreateUserDto, UpdateUserDto } from '../dto/user.dto';
 import { PaginationParams } from '../dto/pagination.dto';
 import { TYPES } from '../types/di.types';
@@ -18,9 +19,12 @@ export interface IUserRepository {
   findUserByPasswordResetToken(token: string): Promise<User | null>;
   createUser(userData: CreateUserDto): Promise<User>;
   updateUser(id: string, updates: UpdateUserDto): Promise<User | null>;
-  getAllUsers(): Promise<User[]>;
-  getPaginatedUsers(pagination: PaginationParams): Promise<PaginatedResult<User>>;
-  getUserCount(): Promise<number>;
+  getAllUsers(orgId?: string | null): Promise<User[]>;
+  getPaginatedUsers(pagination: PaginationParams, orgId?: string | null): Promise<PaginatedResult<User>>;
+  getUserCount(orgId?: string | null): Promise<number>;
+  findUserWithRoles(id: string): Promise<User | null>;
+  addRoleToUser(userId: string, roleId: string): Promise<void>;
+  removeRoleFromUser(userId: string, roleId: string): Promise<void>;
 }
 
 @injectable()
@@ -38,7 +42,10 @@ export class UserRepository implements IUserRepository {
   }
 
   async findUserById(id: string): Promise<User | null> {
-    return await this.repository.findOne({ where: { id } });
+    return await this.repository.findOne({ 
+      where: { id },
+      relations: ['roles', 'roles.permissions'],
+    });
   }
 
   async findUserByGoogleId(googleId: string): Promise<User | null> {
@@ -66,24 +73,87 @@ export class UserRepository implements IUserRepository {
     return await this.repository.save(user);
   }
 
-  async getAllUsers(): Promise<User[]> {
-    return await this.repository.find();
+  async getAllUsers(orgId?: string | null): Promise<User[]> {
+    if (orgId) {
+      return await this.repository.find({ 
+        where: { organizationId: orgId },
+        relations: ['roles', 'roles.permissions'],
+      });
+    }
+    return await this.repository.find({
+      relations: ['roles', 'roles.permissions'],
+    });
   }
 
-  async getPaginatedUsers(pagination: PaginationParams): Promise<PaginatedResult<User>> {
+  async getPaginatedUsers(pagination: PaginationParams, orgId?: string | null): Promise<PaginatedResult<User>> {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
+    const where = orgId ? { organizationId: orgId } : {};
+
     const [data, total] = await this.repository.findAndCount({
+      where,
       skip,
       take: limit,
       order: { createdAt: 'DESC' },
+      relations: ['roles', 'roles.permissions'],
     });
 
     return { data, total };
   }
 
-  async getUserCount(): Promise<number> {
+  async getUserCount(orgId?: string | null): Promise<number> {
+    if (orgId) {
+      return await this.repository.count({ where: { organizationId: orgId } });
+    }
     return await this.repository.count();
+  }
+
+  async findUserWithRoles(id: string): Promise<User | null> {
+    return await this.repository.findOne({
+      where: { id },
+      relations: ['roles', 'roles.permissions'],
+    });
+  }
+
+  async addRoleToUser(userId: string, roleId: string): Promise<void> {
+    const user = await this.repository.findOne({
+      where: { id: userId },
+      relations: ['roles'],
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const roleRepository = this.repository.manager.getRepository(Role);
+    const role = await roleRepository.findOne({ where: { id: roleId } });
+
+    if (!role) {
+      throw new Error('Role not found');
+    }
+
+    if (!user.roles) {
+      user.roles = [];
+    }
+
+    if (!user.roles.some(r => r.id === roleId)) {
+      user.roles.push(role);
+      await this.repository.save(user);
+    }
+  }
+
+  async removeRoleFromUser(userId: string, roleId: string): Promise<void> {
+    const user = await this.repository.findOne({
+      where: { id: userId },
+      relations: ['roles'],
+    });
+
+    if (!user || !user.roles) {
+      return;
+    }
+
+    user.roles = user.roles.filter(r => r.id !== roleId);
+    await this.repository.save(user);
   }
 }

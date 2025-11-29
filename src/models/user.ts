@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToMany, JoinTable } from 'typeorm';
+import { Role } from './role';
 
 @Entity('users')
 export class User {
@@ -29,8 +30,8 @@ export class User {
   @Column({ name: 'password_reset_token_expires_at', nullable: true, type: 'timestamp' })
   passwordResetTokenExpiresAt!: Date | null;
 
-  @Column({ nullable: true, default: 'user' })
-  role!: string;
+  @Column({ name: 'organization_id', nullable: true, type: 'uuid' })
+  organizationId!: string | null;
 
   @Column({ name: 'avatar_url', nullable: true, type: 'varchar' })
   avatarUrl!: string | null;
@@ -43,6 +44,14 @@ export class User {
 
   @Column({ name: 'auth_provider', nullable: true, default: 'local', type: 'varchar' })
   authProvider!: 'local' | 'google';
+
+  @ManyToMany(() => Role, role => role.users)
+  @JoinTable({
+    name: 'user_roles',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
+  })
+  roles!: Role[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

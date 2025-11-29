@@ -150,12 +150,13 @@ export class AuthController {
         return;
       }
 
-      if (!req.user?.userId) {
+      const userId = req.auth?.userId || req.user?.sub;
+      if (!userId) {
         res.status(401).json({ message: 'User not authenticated' });
         return;
       }
 
-      const result = await this.authService.changePassword(req.user.userId, changePasswordDto);
+      const result = await this.authService.changePassword(userId, changePasswordDto);
 
       res.json(result);
     } catch (error) {

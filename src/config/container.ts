@@ -15,6 +15,14 @@ import { HealthController } from '../controllers/healthController';
 import { IEventPublisher } from '../events/eventPublisher';
 import { RabbitMQEventPublisher } from '../events/rabbitmqEventPublisher';
 import { IUserEventsPublisher, UserEventsPublisher } from '../events/userEventsPublisher';
+import { IRoleRepository, RoleRepository } from '../repositories/roleRepository';
+import { IPermissionRepository, PermissionRepository } from '../repositories/permissionRepository';
+import { IRoleService, RoleService } from '../services/roleService';
+import { IPermissionService, PermissionService } from '../services/permissionService';
+import { IUserAuthService, UserAuthService } from '../services/userAuthService';
+import { RoleController } from '../controllers/roleController';
+import { PermissionController } from '../controllers/permissionController';
+import { JwksController } from '../controllers/jwksController';
 import AppDataSource from './database';
 
 const container = new Container();
@@ -31,6 +39,14 @@ container.bind<AuthController>(TYPES.AuthController).to(AuthController);
 container.bind<HealthController>(TYPES.HealthController).to(HealthController);
 container.bind<IEventPublisher>(TYPES.EventPublisher).to(RabbitMQEventPublisher).inSingletonScope();
 container.bind<IUserEventsPublisher>(TYPES.UserEventsPublisher).to(UserEventsPublisher);
+container.bind<IRoleRepository>(TYPES.RoleRepository).to(RoleRepository);
+container.bind<IPermissionRepository>(TYPES.PermissionRepository).to(PermissionRepository);
+container.bind<IRoleService>(TYPES.RoleService).to(RoleService);
+container.bind<IPermissionService>(TYPES.PermissionService).to(PermissionService);
+container.bind<IUserAuthService>(TYPES.UserAuthService).to(UserAuthService);
+container.bind<RoleController>(TYPES.RoleController).to(RoleController);
+container.bind<PermissionController>(TYPES.PermissionController).to(PermissionController);
+container.bind<JwksController>(TYPES.JwksController).to(JwksController);
 
 export default container;
 

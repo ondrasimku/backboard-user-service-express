@@ -8,11 +8,11 @@ import { UpdateUserProfileDto } from '../dto/user.dto';
 
 export interface IUserService {
   getUserById(id: string): Promise<User | null>;
-  getAllUsers(): Promise<User[]>;
-  getPaginatedUsers(pagination: PaginationParams): Promise<PaginatedResult<User>>;
+  getAllUsers(orgId?: string | null): Promise<User[]>;
+  getPaginatedUsers(pagination: PaginationParams, orgId?: string | null): Promise<PaginatedResult<User>>;
   updateUserProfile(userId: string, profileData: UpdateUserProfileDto): Promise<User | null>;
   setUserAvatar(userId: string, fileId: string, avatarUrl: string): Promise<User | null>;
-  getUserMetrics(): Promise<{ userCount: number }>;
+  getUserMetrics(orgId?: string | null): Promise<{ userCount: number }>;
 }
 
 @injectable()
@@ -33,20 +33,21 @@ export class UserService implements IUserService {
     return user;
   }
 
-  async getAllUsers(): Promise<User[]> {
-    this.logger.debug('Fetching all users');
-    const users = await this.userRepository.getAllUsers();
-    this.logger.info('Retrieved users list', { count: users.length });
+  async getAllUsers(orgId?: string | null): Promise<User[]> {
+    this.logger.debug('Fetching all users', { orgId });
+    const users = await this.userRepository.getAllUsers(orgId);
+    this.logger.info('Retrieved users list', { count: users.length, orgId });
     return users;
   }
 
-  async getPaginatedUsers(pagination: PaginationParams): Promise<PaginatedResult<User>> {
-    this.logger.debug('Fetching paginated users', { pagination });
-    const result = await this.userRepository.getPaginatedUsers(pagination);
+  async getPaginatedUsers(pagination: PaginationParams, orgId?: string | null): Promise<PaginatedResult<User>> {
+    this.logger.debug('Fetching paginated users', { pagination, orgId });
+    const result = await this.userRepository.getPaginatedUsers(pagination, orgId);
     this.logger.info('Retrieved paginated users', {
       page: pagination.page,
       limit: pagination.limit,
       total: result.total,
+      orgId,
     });
     return result;
   }
@@ -106,10 +107,10 @@ export class UserService implements IUserService {
     return updatedUser;
   }
 
-  async getUserMetrics(): Promise<{ userCount: number }> {
-    this.logger.debug('Fetching user metrics');
-    const userCount = await this.userRepository.getUserCount();
-    this.logger.info('Retrieved user metrics', { userCount });
+  async getUserMetrics(orgId?: string | null): Promise<{ userCount: number }> {
+    this.logger.debug('Fetching user metrics', { orgId });
+    const userCount = await this.userRepository.getUserCount(orgId);
+    this.logger.info('Retrieved user metrics', { userCount, orgId });
     return { userCount };
   }
 }

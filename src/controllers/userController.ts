@@ -19,11 +19,16 @@ export class UserController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      if (!req.user) {
+      if (!req.auth && !req.user) {
         throw new AppError('User not authenticated', 401);
       }
 
-      const user = await this.userService.getUserById(req.user.userId);
+      const userId = req.auth?.userId || req.user?.sub;
+      if (!userId) {
+        throw new AppError('User not authenticated', 401);
+      }
+
+      const user = await this.userService.getUserById(userId);
 
       if (!user) {
         res.status(404).json({ message: 'User not found. Please contact support.' });
@@ -43,11 +48,18 @@ export class UserController {
   ): Promise<void> => {
     try {
       const { id } = req.params;
+      const orgId = req.auth?.orgId;
 
       const user = await this.userService.getUserById(id);
 
       if (!user) {
         res.status(404).json({ message: 'User not found' });
+        return;
+      }
+
+      // Tenant isolation: if user has orgId, ensure they can only access users from their org
+      if (orgId && user.organizationId && user.organizationId !== orgId) {
+        res.status(403).json({ message: 'Access denied: organization mismatch' });
         return;
       }
 
@@ -65,6 +77,7 @@ export class UserController {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
+      const orgId = req.auth?.orgId;
 
       if (page < 1) {
         throw new AppError('Page must be greater than 0', 400);
@@ -75,7 +88,8 @@ export class UserController {
       }
 
       const pagination: PaginationParams = { page, limit };
-      const result = await this.userService.getPaginatedUsers(pagination);
+      // Tenant isolation: filter by orgId if user belongs to an organization
+      const result = await this.userService.getPaginatedUsers(pagination, orgId);
 
       const response: PaginatedResponse<UserResponseDto> = {
         data: result.data.map((user) => this.mapToUserResponse(user)),
@@ -99,7 +113,12 @@ export class UserController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      if (!req.user) {
+      if (!req.auth && !req.user) {
+        throw new AppError('User not authenticated', 401);
+      }
+
+      const userId = req.auth?.userId || req.user?.sub;
+      if (!userId) {
         throw new AppError('User not authenticated', 401);
       }
 
@@ -125,7 +144,7 @@ export class UserController {
         throw new AppError('At least one field (firstName or lastName) must be provided', 400);
       }
 
-      const updatedUser = await this.userService.updateUserProfile(req.user.userId, profileData);
+      const updatedUser = await this.userService.updateUserProfile(userId, profileData);
 
       if (!updatedUser) {
         res.status(404).json({ message: 'User not found' });
@@ -144,7 +163,12 @@ export class UserController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      if (!req.user) {
+      if (!req.auth && !req.user) {
+        throw new AppError('User not authenticated', 401);
+      }
+
+      const userId = req.auth?.userId || req.user?.sub;
+      if (!userId) {
         throw new AppError('User not authenticated', 401);
       }
 
@@ -159,7 +183,7 @@ export class UserController {
       }
 
       const updatedUser = await this.userService.setUserAvatar(
-        req.user.userId,
+        userId,
         avatarData.fileId,
         avatarData.avatarUrl,
       );
@@ -181,7 +205,9 @@ export class UserController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const metrics = await this.userService.getUserMetrics();
+      const orgId = req.auth?.orgId;
+      // Tenant isolation: filter metrics by orgId if user belongs to an organization
+      const metrics = await this.userService.getUserMetrics(orgId);
       res.json(metrics);
     } catch (error) {
       next(error);
@@ -194,7 +220,14 @@ export class UserController {
     firstName: string;
     lastName: string;
     emailVerified: boolean;
-    role: string;
+    roles?: Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      permissions?: Array<{ name: string }>;
+      createdAt: Date;
+      updatedAt: Date;
+    }>;
     avatarUrl?: string | null;
     avatarFileId?: string | null;
     createdAt: Date;
@@ -206,7 +239,14 @@ export class UserController {
       firstName: user.firstName,
       lastName: user.lastName,
       emailVerified: user.emailVerified,
-      role: user.role,
+      roles: (user.roles || []).map(role => ({
+        id: role.id,
+        name: role.name,
+        description: role.description,
+        permissions: role.permissions?.map(p => p.name) || [],
+        createdAt: role.createdAt,
+        updatedAt: role.updatedAt,
+      })),
       avatarUrl: user.avatarUrl ?? null,
       avatarFileId: user.avatarFileId ?? null,
       createdAt: user.createdAt,

@@ -20,7 +20,7 @@ export class UserEventsPublisher implements IUserEventsPublisher {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
-      role: user.role,
+      roles: user.roles?.map(role => role.name) || [],
       createdAt: user.createdAt,
       emailVerified: user.emailVerified,
       emailVerificationToken: user.emailVerificationToken,

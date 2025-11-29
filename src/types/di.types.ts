@@ -11,5 +11,13 @@ export const TYPES = {
   HealthController: Symbol.for('HealthController'),
   EventPublisher: Symbol.for('EventPublisher'),
   UserEventsPublisher: Symbol.for('UserEventsPublisher'),
+  RoleRepository: Symbol.for('RoleRepository'),
+  RoleService: Symbol.for('RoleService'),
+  RoleController: Symbol.for('RoleController'),
+  PermissionRepository: Symbol.for('PermissionRepository'),
+  PermissionService: Symbol.for('PermissionService'),
+  PermissionController: Symbol.for('PermissionController'),
+  UserAuthService: Symbol.for('UserAuthService'),
+  JwksController: Symbol.for('JwksController'),
 };
 

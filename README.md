@@ -1,15 +1,18 @@
-# User Service with JWT Authentication
+# User Service - Identity Provider (IdP)
 
-A TypeScript Express.js microservice for user management with classic JWT authentication using RSA asymmetric keys.
+A TypeScript Express.js microservice that acts as the Identity Provider (IdP) for the Backboard platform. Provides user management, authentication, role-based authorization, and JWT token issuance.
 
 ## Features
 
 - ✅ User registration with email/password
 - ✅ User login with JWT token generation
 - ✅ RSA-256 JWT authentication (asymmetric keys)
+- ✅ **JWKS endpoint** for public key discovery
+- ✅ **Role-based permission system** with centralized management
+- ✅ **Multi-tenant support** with organization isolation
 - ✅ Password hashing with bcrypt
-- ✅ Permission-based authorization
-- ✅ PostgreSQL database with Sequelize ORM
+- ✅ Google OAuth integration
+- ✅ PostgreSQL database with TypeORM
 - ✅ Clean Architecture with Dependency Injection (Inversify)
 - ✅ TypeScript with strict mode
 
@@ -23,7 +26,7 @@ src/
 ├── controllers/     # HTTP request handlers
 ├── dto/             # Data transfer objects
 ├── middlewares/     # Auth, permissions, and error handling
-├── models/          # Sequelize models
+├── models/          # TypeORM models
 ├── repositories/    # Data access layer
 ├── routes/          # Route definitions
 ├── services/        # Business logic layer
@@ -81,9 +84,12 @@ DB_PASSWORD=postgres
 # Paste the keys from the generate-keys.js output
 JWT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 JWT_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n"
-JWT_EXPIRES_IN=7d
+JWT_EXPIRES_IN=1h
+JWT_ISSUER=http://user-service:3000
+JWT_AUDIENCE=backboard
+USER_SERVICE_BASE_URL=http://user-service:3000
 
-# Admin Permissions
+# Admin Permissions (legacy, now managed via roles)
 ADMIN_PERMISSIONS=read:users,write:users
 ```
 
@@ -221,36 +227,69 @@ CREATE TABLE users (
 ### Token Payload
 ```json
 {
-  "userId": "uuid",
-  "email": "user@example.com",
-  "permissions": ["read:users", "write:users"],
+  "sub": "user-uuid",
+  "iss": "http://user-service:3000",
+  "aud": "backboard",
   "iat": 1698609600,
-  "exp": 1699214400
+  "exp": 1698613200,
+  "nbf": 1698609600,
+  "org_id": "org-uuid",
+  "roles": ["org_admin", "analyst"],
+  "permissions": ["users:read", "files:upload", "projects:create"],
+  "email": "user@example.com",
+  "name": "John Doe"
 }
 ```
 
 ### Security
 - **Algorithm**: RS256 (RSA with SHA-256)
 - **Private Key**: Signs tokens (keep secret!)
-- **Public Key**: Verifies tokens (can be shared)
-- **Expiration**: 7 days (configurable via `JWT_EXPIRES_IN`)
+- **Public Key**: Verifies tokens (exposed via JWKS endpoint)
+- **Expiration**: 1 hour (configurable via `JWT_EXPIRES_IN`)
+- **JWKS Endpoint**: `/.well-known/jwks.json` for public key discovery
 
 ## Permission-Based Authorization
 
-Admin endpoints require specific permissions in the JWT token:
-- `read:users` - Required to list users or get user by ID
-- `write:users` - Required for future write operations
+The service implements a centralized role and permission management system. Permissions are resolved from user roles and included in JWT tokens.
 
-To assign permissions to a user:
-1. Update the `permissions` column in the database
-2. User must login again to get a new token with updated permissions
+### Available Permissions
 
-Example:
-```sql
-UPDATE users 
-SET permissions = ARRAY['read:users', 'write:users'] 
-WHERE email = 'admin@example.com';
+- `users:read`, `users:invite`, `users:update`, `users:delete`
+- `files:read`, `files:upload`, `files:delete`
+- `projects:read`, `projects:create`, `projects:update`, `projects:delete`
+- `pipelines:execute`
+- `permissions:manage`, `roles:manage`, `users:manage`
+
+### Setting Up Roles and Permissions
+
+1. **Permissions are automatically created** on service startup from `src/config/permissions.ts`
+
+2. **Create a role:**
+```bash
+POST /api/admin/roles
+{
+  "name": "org_admin",
+  "description": "Organization Administrator"
+}
 ```
+
+3. **Add permissions to role:**
+```bash
+POST /api/admin/roles/{roleId}/permissions
+{
+  "permissionId": "{permissionId}"
+}
+```
+
+4. **Assign role to user:**
+```bash
+POST /api/admin/users/{userId}/roles
+{
+  "roleId": "{roleId}"
+}
+```
+
+5. **User must login again** to receive a new token with updated roles and permissions
 
 ## Development
 
@@ -281,8 +320,8 @@ npm test
 ## Project Structure
 
 ### Models (`src/models/`)
-- Sequelize models defining database schema
-- Contains user model with authentication and app-specific fields
+- TypeORM models defining database schema
+- Contains User, Role, Permission models with relationships
 
 ### DTOs (`src/dto/`)
 - Data Transfer Objects for request/response validation
@@ -291,24 +330,32 @@ npm test
 ### Repositories (`src/repositories/`)
 - Data access layer
 - Database operations (CRUD)
-- Abstraction over Sequelize
+- Abstraction over TypeORM
+- Supports tenant isolation via orgId filtering
 
 ### Services (`src/services/`)
 - **AuthService**: Registration, login, JWT generation, password hashing
 - **UserService**: User lookup and management
+- **UserAuthService**: Resolves user roles and permissions for JWT tokens
+- **RoleService**: Role management (CRUD, permission assignment)
+- **PermissionService**: Permission management and synchronization
 
 ### Controllers (`src/controllers/`)
-- **AuthController**: Auth endpoints (register, login)
+- **AuthController**: Auth endpoints (register, login, password reset)
 - **UserController**: User endpoints (me, list, get by ID)
+- **RoleController**: Role management endpoints
+- **PermissionController**: Permission listing endpoints
+- **JwksController**: JWKS endpoint for public key discovery
 
 ### Middlewares (`src/middlewares/`)
-- `auth.ts`: JWT verification, permission checking
+- `auth.ts`: JWT verification, AuthContext extraction, permission checking
 - `errorHandler.ts`: Global error handling
 
 ### Config (`src/config/`)
 - Environment configuration
 - Database connection
 - Dependency injection container (Inversify)
+- Permission definitions (`permissions.ts`)
 
 ## License
 

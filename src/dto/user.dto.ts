@@ -17,7 +17,6 @@ export interface CreateUserDto {
   lastName: string;
   emailVerified?: boolean;
   emailVerificationToken?: string | null;
-  role?: string;
   googleId?: string | null;
   authProvider?: 'local' | 'google';
 }
@@ -31,12 +30,13 @@ export interface UpdateUserDto {
   emailVerificationToken?: string | null;
   passwordResetToken?: string | null;
   passwordResetTokenExpiresAt?: Date | null;
-  role?: string;
   avatarUrl?: string | null;
   avatarFileId?: string | null;
   googleId?: string | null;
   authProvider?: 'local' | 'google';
 }
+
+import { RoleResponseDto } from './role.dto';
 
 export interface UserResponseDto {
   id: string;
@@ -44,7 +44,7 @@ export interface UserResponseDto {
   firstName: string;
   lastName: string;
   emailVerified: boolean;
-  role: string;
+  roles: RoleResponseDto[];
   avatarUrl?: string | null;
   avatarFileId?: string | null;
   createdAt: Date;

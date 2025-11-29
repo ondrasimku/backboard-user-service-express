@@ -18,6 +18,8 @@ interface JwtConfig {
   privateKey: string;
   publicKey: string;
   expiresIn: string;
+  issuer: string;
+  audience: string;
 }
 
 interface RabbitMQConfig {
@@ -85,7 +87,9 @@ export const config: Config = {
   jwt: {
     privateKey: jwtKeys.privateKey,
     publicKey: jwtKeys.publicKey,
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    expiresIn: process.env.JWT_EXPIRES_IN || '1h',
+    issuer: process.env.JWT_ISSUER || process.env.USER_SERVICE_BASE_URL || 'http://localhost:3000',
+    audience: process.env.JWT_AUDIENCE || 'backboard',
   },
   rabbitmq: {
     url: process.env.RABBITMQ_URL || 'amqp://backboard:backboardpass@backboard-rabbitmq:5672',

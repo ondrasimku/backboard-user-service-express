@@ -3,15 +3,33 @@ import jwt from 'jsonwebtoken';
 import config from '../config/config';
 import { asyncContext } from '../logging/context';
 
-interface JwtPayload {
-  userId: string;
-  email: string;
+export interface JwtPayload {
+  sub: string;
+  iss: string;
+  aud: string | string[];
+  iat: number;
+  exp: number;
+  nbf?: number;
+  org_id?: string | null;
+  roles?: string[];
   permissions?: string[];
+  email?: string;
+  name?: string;
   [key: string]: unknown;
+}
+
+export interface AuthContext {
+  userId: string;
+  orgId: string | null;
+  roles: string[];
+  permissions: string[];
+  email?: string;
+  name?: string;
 }
 
 interface AuthenticatedRequest extends Request {
   user?: JwtPayload;
+  auth?: AuthContext;
 }
 
 export const authenticateToken = async (
@@ -43,10 +61,22 @@ export const authenticateToken = async (
           return res.status(401).json({ message: 'Invalid token', error: err.message });
         }
 
-        req.user = decoded as JwtPayload;
+        const payload = decoded as JwtPayload;
+        req.user = payload;
+
+        // Build AuthContext for consistency with other services
+        const authContext: AuthContext = {
+          userId: payload.sub,
+          orgId: payload.org_id || null,
+          roles: payload.roles || [],
+          permissions: payload.permissions || [],
+          email: payload.email,
+          name: payload.name,
+        };
+        req.auth = authContext;
         
-        if (req.user?.userId) {
-          asyncContext.updateContext({ userId: req.user.userId });
+        if (authContext.userId) {
+          asyncContext.updateContext({ userId: authContext.userId });
         }
         
         next();
@@ -59,11 +89,12 @@ export const authenticateToken = async (
 
 export const requirePermissions = (requiredPermissions: string[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (!req.user) {
+    if (!req.auth && !req.user) {
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    const userPermissions = req.user.permissions || [];
+    // Prefer auth context, fall back to user payload for backward compatibility
+    const userPermissions = req.auth?.permissions || req.user?.permissions || [];
     const hasPermission = requiredPermissions.every(perm => 
       userPermissions.includes(perm)
     );
@@ -72,6 +103,7 @@ export const requirePermissions = (requiredPermissions: string[]) => {
       return res.status(403).json({ 
         message: 'Insufficient permissions',
         required: requiredPermissions,
+        has: userPermissions,
       });
     }
 
@@ -79,5 +111,5 @@ export const requirePermissions = (requiredPermissions: string[]) => {
   };
 };
 
-export type { AuthenticatedRequest, JwtPayload };
+export type { AuthenticatedRequest };
 
